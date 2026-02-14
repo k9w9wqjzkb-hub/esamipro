@@ -23,8 +23,10 @@
 
         <div id="view-trends" class="app-view" style="display:none">
             <h2 class="section-title">Analisi Trend</h2>
-            <select id="trendParamSelector" class="ios-select" style="margin-bottom:15px"></select>
-            <div style="height: 300px; background:white; padding:10px; border-radius:15px;">
+            <div class="card-white" style="margin-bottom: 15px;">
+                <select id="trendParamSelector" class="ios-select"></select>
+            </div>
+            <div style="height: 320px; background:white; padding:15px; border-radius:18px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
                 <canvas id="mainTrendChart"></canvas>
             </div>
         </div>
@@ -36,15 +38,15 @@
 
         <div id="view-settings" class="app-view" style="display:none">
             <h2 class="section-title">Configurazione</h2>
-            <div style="background:white; padding:15px; border-radius:15px;">
+            <div class="card-white">
                 <form id="paramConfigForm">
-                    <input type="text" id="confName" placeholder="Nome Esame" required>
-                    <input type="text" id="confUnit" placeholder="Unità" required>
-                    <div style="display:flex; gap:10px; margin-top:10px">
+                    <input type="text" id="confName" placeholder="Nome Esame (es. Ferro)" required>
+                    <input type="text" id="confUnit" placeholder="Unità (es. mg/dL)" required>
+                    <div class="input-row" style="display:flex; gap:10px; margin-top:10px">
                         <input type="number" id="confMin" placeholder="Min" step="0.1">
                         <input type="number" id="confMax" placeholder="Max" step="0.1">
                     </div>
-                    <button type="submit" class="button primary-button" style="margin-top:15px">Aggiungi Parametro</button>
+                    <button type="submit" class="button primary-button" style="margin-top:15px">Aggiungi al Dizionario</button>
                 </form>
             </div>
             <div id="dictionaryList" style="margin-top:20px"></div>
@@ -54,38 +56,48 @@
     <div id="examModal" class="modal">
         <div class="modal-content">
             <span class="close-button">&times;</span>
-            <h3>Nuovo Referto</h3>
+            <h3 style="margin-top:0">Nuovo Referto</h3>
             <form id="reportForm">
                 <div class="input-stack">
                     <div class="input-group">
-                        <label class="label-small">Data Prelievo</label>
+                        <label class="label-small">DATA PRELIEVO</label>
                         <input type="date" id="reportDate" required>
                     </div>
-                    <div class="input-group">
-                        <label class="label-small">Luogo / Laboratorio</label>
-                        <input type="text" id="reportLocation" placeholder="Es: Ospedale Centrale" required>
+                    <div class="input-group" style="margin-top:10px">
+                        <label class="label-small">LUOGO / LABORATORIO</label>
+                        <input type="text" id="reportLocation" placeholder="Es: Laboratorio Analisi" required>
                     </div>
                 </div>
                 
-                <div id="tempExamsList" class="temp-list-container"></div>
+                <div id="tempExamsList" class="temp-list-container">
+                    <span style="color:gray; font-size:12px">Nessun esame inserito</span>
+                </div>
 
                 <div class="add-row-box">
-                    <label class="label-small">Inserisci Risultato</label>
+                    <label class="label-small">AGGIUNGI PARAMETRO</label>
                     <select id="examParamSelect" class="ios-select"></select>
                     <input type="number" id="examValue" step="0.1" placeholder="Valore" style="margin-top:8px">
-                    <button type="button" id="btnAddRow" class="button secondary-button">+ Aggiungi Riga</button>
+                    <button type="button" id="btnAddRow" class="button secondary-button">+ Inserisci Riga</button>
                 </div>
                 
-                <button type="submit" class="button primary-button" style="margin-top:20px">Salva Report Completo</button>
+                <button type="submit" class="button primary-button" style="margin-top:20px">Salva Report Finale</button>
             </form>
         </div>
     </div>
 
     <nav class="tab-bar">
-        <a href="#" class="tab-item active" data-view="dashboard"><i class="fas fa-th-large"></i><span>Home</span></a>
-        <a href="#" class="tab-item" data-view="trends"><i class="fas fa-chart-line"></i><span>Trend</span></a>
-        <a href="#" class="tab-item" data-view="history"><i class="fas fa-history"></i><span>Storico</span></a>
-        <a href="#" class="tab-item" data-view="settings"><i class="fas fa-cog"></i><span>Config</span></a>
+        <a href="#" class="tab-item active" data-view="dashboard">
+            <i class="fas fa-th-large"></i><span>Home</span>
+        </a>
+        <a href="#" class="tab-item" data-view="trends">
+            <i class="fas fa-chart-line"></i><span>Trend</span>
+        </a>
+        <a href="#" class="tab-item" data-view="history">
+            <i class="fas fa-history"></i><span>Storico</span>
+        </a>
+        <a href="#" class="tab-item" data-view="settings">
+            <i class="fas fa-cog"></i><span>Config</span>
+        </a>
     </nav>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
