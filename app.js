@@ -9,28 +9,55 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
 
     let tempExams = [];
+    const mainAddBtn = document.getElementById('mainAddBtn');
 
-    // Navigazione
+    // --- NAVIGAZIONE E VISIBILITÀ TASTO + ---
+    function showView(target) {
+        // Nascondi tutte le viste
+        document.querySelectorAll('.app-view').forEach(v => v.style.display = 'none');
+        // Mostra la vista selezionata
+        document.getElementById(`view-${target}`).style.display = 'block';
+        
+        // Gestione classi attive sulle tab
+        document.querySelectorAll('.tab-item').forEach(t => {
+            t.classList.toggle('active', t.dataset.view === target);
+        });
+
+        // Mostra il tasto "+" SOLO nella Dashboard
+        if (mainAddBtn) {
+            mainAddBtn.style.display = (target === 'dashboard') ? 'block' : 'none';
+        }
+
+        // Trigger rendering specifico
+        if(target === 'trends') renderTrendPage();
+        if(target === 'history') renderHistory();
+        if(target === 'dashboard') renderDashboard();
+    }
+
     document.querySelectorAll('.tab-item').forEach(tab => {
         tab.onclick = (e) => {
             e.preventDefault();
-            const target = tab.dataset.view;
-            document.querySelectorAll('.app-view').forEach(v => v.style.display = 'none');
-            document.getElementById(`view-${target}`).style.display = 'block';
-            document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            if(target === 'trends') renderTrendPage();
-            if(target === 'history') renderHistory();
-            if(target === 'dashboard') render();
+            showView(tab.dataset.view);
         };
     });
 
-    // --- DIZIONARIO ---
+    // --- DIZIONARIO (CONFIG) ---
     const renderDictList = () => {
         const list = document.getElementById('dictionaryList');
-        if(list) list.innerHTML = dict.map(p => `<div class="history-item"><span>${p.name} (${p.unit})</span> <i class="fas fa-check-circle" style="color:var(--success)"></i></div>`).join('');
+        if(list) {
+            list.innerHTML = dict.map(p => `
+                <div class="report-card" style="padding:12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center">
+                    <span><b>${p.name}</b> (${p.unit})</span>
+                    <i class="fas fa-check-circle" style="color:var(--success)"></i>
+                </div>
+            `).join('');
+        }
+        // Aggiorna la select nel modal
         const select = document.getElementById('examParamSelect');
-        if(select) select.innerHTML = '<option value="">Scegli...</option>' + dict.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+        if(select) {
+            select.innerHTML = '<option value="">Scegli...</option>' + 
+                dict.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+        }
     };
 
     document.getElementById('paramConfigForm').onsubmit = (e) => {
@@ -47,7 +74,20 @@ document.addEventListener('DOMContentLoaded', () => {
         e.target.reset();
     };
 
-    // --- AGGIUNTA RIGHE TEMPORANEE NEL MODAL ---
+    // --- GESTIONE MODAL E RIGHE TEMPORANEE ---
+    if (mainAddBtn) {
+        mainAddBtn.onclick = () => {
+            document.getElementById('examModal').style.display = 'block';
+            renderDictList(); 
+        };
+    }
+
+    document.querySelector('.close-button').onclick = () => {
+        document.getElementById('examModal').style.display = 'none';
+        tempExams = [];
+        renderTempList();
+    };
+
     document.getElementById('btnAddRow').onclick = () => {
         const name = document.getElementById('examParamSelect').value;
         const val = parseFloat(document.getElementById('examValue').value);
@@ -62,11 +102,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderTempList() {
         const container = document.getElementById('tempExamsList');
         container.innerHTML = tempExams.map((e, i) => `
-            <div style="display:flex; justify-content:space-between; font-size:14px; margin-bottom:5px">
-                <span>${e.param}: <b>${e.val}</b></span>
-                <i class="fas fa-times" onclick="removeTemp(${i})" style="color:red"></i>
+            <div style="display:flex; justify-content:space-between; font-size:14px; margin-bottom:8px; background:white; padding:8px; border-radius:8px">
+                <span>${e.param}: <b>${e.val} ${e.unit}</b></span>
+                <i class="fas fa-minus-circle" onclick="removeTemp(${i})" style="color:var(--danger)"></i>
             </div>
-        `).join('') || 'Aggiungi parametri...';
+        `).join('') || '<span style="color:gray; font-size:12px">Aggiungi parametri...</span>';
     }
 
     window.removeTemp = (i) => { tempExams.splice(i,1); renderTempList(); };
@@ -88,12 +128,14 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('examModal').style.display = 'none';
         e.target.reset();
         renderTempList();
-        render();
+        renderDashboard();
     };
 
-    // --- RENDERING HOME (ULTIMI VALORI) ---
-    function render() {
+    // --- RENDERING DASHBOARD (HOME) ---
+    function renderDashboard() {
         const grid = document.getElementById('keyMetricsGrid');
+        if(!grid) return;
+
         grid.innerHTML = dict.slice(0,4).map(p => {
             const allValues = [];
             reports.forEach(r => {
@@ -105,11 +147,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const valStr = last ? `${last.val} <small>${p.unit}</small>` : '--';
             const isOut = last && ((p.min && last.val < p.min) || (p.max && last.val > p.max));
             
-            return `<div class="metric-card ${p.color}" style="${isOut ? 'border-left-color:var(--danger)' : ''}">
-                <label>${p.name}</label>
-                <div style="font-size:22px; font-weight:800; margin:8px 0">${valStr}</div>
-                <small style="color:${isOut ? 'var(--danger)' : 'inherit'}">${isOut ? 'FUORI RANGE' : (last ? 'NORMALE' : 'NO DATI')}</small>
-            </div>`;
+            return `
+                <div class="metric-card ${p.color}" style="${isOut ? 'border-left-color:var(--danger)' : ''}">
+                    <label>${p.name}</label>
+                    <div style="font-size:22px; font-weight:800; margin:8px 0">${valStr}</div>
+                    <small style="color:${isOut ? 'var(--danger)' : 'inherit'}">
+                        ${isOut ? 'FUORI RANGE' : (last ? 'NORMALE' : 'NO DATI')}
+                    </small>
+                </div>`;
         }).join('');
     }
 
@@ -120,23 +165,23 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="report-card">
                 <div class="report-header" onclick="toggleReport(${r.id})">
                     <div><b>${r.location}</b><br><small>${r.date}</small></div>
-                    <i class="fas fa-chevron-down"></i>
+                    <i class="fas fa-chevron-down" style="color:var(--ios-blue)"></i>
                 </div>
-                <div id="det-${r.id}" class="report-details" style="display:none; padding:15px; background:#fff">
+                <div id="det-${r.id}" class="report-details" style="display:none; padding:15px; background:#fafafa">
                     ${r.exams.map(e => `
-                        <div style="display:flex; justify-content:space-between; padding:5px 0; border-bottom:0.5px solid #eee">
+                        <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:0.5px solid #eee">
                             <span>${e.param}</span><b>${e.val} ${e.unit}</b>
                         </div>
                     `).join('')}
-                    <button class="btn-del" onclick="delReport(${r.id})">Elimina Report</button>
+                    <button class="btn-del" style="color:var(--danger); background:none; border:none; width:100%; padding-top:15px; font-weight:600" onclick="delReport(${r.id})">Elimina Report</button>
                 </div>
             </div>
-        `).join('') || '<p style="text-align:center">Vuoto</p>';
+        `).join('') || '<p style="text-align:center; color:gray">Vuoto</p>';
     }
 
     window.toggleReport = (id) => {
         const d = document.getElementById(`det-${id}`);
-        d.style.display = d.style.display === 'none' ? 'block' : 'none';
+        if(d) d.style.display = d.style.display === 'none' ? 'block' : 'none';
     };
 
     window.delReport = (id) => {
@@ -144,7 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
             reports = reports.filter(r => r.id !== id);
             localStorage.setItem('blood_reports_v2', JSON.stringify(reports));
             renderHistory();
-            render();
+            renderDashboard();
         }
     };
 
@@ -152,6 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let tChart = null;
     function renderTrendPage() {
         const sel = document.getElementById('trendParamSelector');
+        if(!sel) return;
         const unique = dict.map(d => d.name);
         sel.innerHTML = unique.map(u => `<option value="${u}">${u}</option>`).join('');
         sel.onchange = () => {
@@ -167,7 +213,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 type: 'line',
                 data: {
                     labels: pts.map(p => p.x),
-                    datasets: [{ label: sel.value, data: pts.map(p => p.y), borderColor: '#007AFF', tension: 0.3 }]
+                    datasets: [{ 
+                        label: sel.value, 
+                        data: pts.map(p => p.y), 
+                        borderColor: '#007AFF', 
+                        tension: 0.3,
+                        fill: true,
+                        backgroundColor: 'rgba(0,122,255,0.1)'
+                    }]
                 },
                 options: { responsive: true, maintainAspectRatio: false }
             });
@@ -175,9 +228,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sel.dispatchEvent(new Event('change'));
     }
 
-    document.querySelector('.add-exam-btn').onclick = () => document.getElementById('examModal').style.display = 'block';
-    document.querySelector('.close-button').onclick = () => document.getElementById('examModal').style.display = 'none';
-
-    render();
+    // Inizializzazione
+    showView('dashboard');
     renderDictList();
 });
