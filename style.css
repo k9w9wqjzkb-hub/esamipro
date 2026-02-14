@@ -1,0 +1,64 @@
+:root {
+    --ios-blue: #007AFF;
+    --ios-bg: #F2F2F7;
+    --card-bg: #FFFFFF;
+    --text: #1C1C1E;
+    --gray: #8E8E93;
+    --danger: #FF3B30;
+    --success: #34C759;
+}
+
+body { 
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif; 
+    margin: 0; 
+    background: var(--ios-bg); 
+    color: var(--text); 
+    -webkit-font-smoothing: antialiased; 
+}
+
+/* Navbar */
+.navbar { 
+    position: fixed; top: 0; width: 100%; height: 85px; 
+    background: rgba(255,255,255,0.85); backdrop-filter: blur(20px); 
+    display: flex; align-items: flex-end; justify-content: center; 
+    padding-bottom: 12px; border-bottom: 0.5px solid #C6C6C8; z-index: 1000; 
+}
+.navbar h1 { margin: 0; font-size: 17px; font-weight: 600; }
+.navbar-right { position: absolute; right: 20px; bottom: 10px; color: var(--ios-blue); font-size: 24px; cursor: pointer; }
+
+.main-content { padding: 95px 16px 110px; }
+.section-title { font-size: 22px; font-weight: 700; margin: 20px 0 12px 4px; }
+
+/* Dashboard Cards */
+.key-metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.metric-card { 
+    padding: 16px; border-radius: 18px; background: white; 
+    border-left: 5px solid var(--gray); box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+.metric-card label { font-size: 12px; color: var(--gray); font-weight: 600; text-transform: uppercase; }
+.bg-blue { border-left-color: var(--ios-blue); }
+.bg-red { border-left-color: var(--danger); }
+.bg-orange { border-left-color: #FF9500; }
+.bg-purple { border-left-color: #AF52DE; }
+
+/* Storico a Report */
+.report-card { background: white; border-radius: 14px; margin-bottom: 10px; overflow: hidden; }
+.report-header { padding: 15px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+.report-details { border-top: 1px solid #EEE; }
+
+/* Modale */
+.modal { display: none; position: fixed; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; backdrop-filter: blur(5px); }
+.modal-content { background: white; margin: 10% auto; width: 85%; padding: 20px; border-radius: 20px; max-height: 80vh; overflow-y: auto; }
+
+/* Input e Bottoni */
+.ios-select, input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #DDD; border-radius: 10px; font-size: 16px; box-sizing: border-box; }
+.button { width: 100%; padding: 14px; border-radius: 12px; font-weight: 600; border: none; cursor: pointer; }
+.primary-button { background: var(--ios-blue); color: white; margin-top: 10px; }
+.secondary-button { background: #E5E5EA; color: var(--ios-blue); }
+.btn-del { color: var(--danger); background: none; border: none; width: 100%; padding: 10px; cursor: pointer; font-weight: 600; }
+
+/* Tab Bar */
+.tab-bar { position: fixed; bottom: 0; width: 100%; height: 85px; background: white; display: flex; justify-content: space-around; padding-top: 10px; border-top: 0.5px solid #C6C6C8; }
+.tab-item { text-decoration: none; color: var(--gray); display: flex; flex-direction: column; align-items: center; font-size: 10px; }
+.tab-item.active { color: var(--ios-blue); }
+.tab-item i { font-size: 22px; margin-bottom: 4px; }

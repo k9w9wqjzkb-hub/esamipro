@@ -1,0 +1,22 @@
+{
+  "name": "iMieiEsami Pro",
+  "short_name": "iMieiEsami",
+  "description": "Monitoraggio analisi del sangue",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#F2F2F7",
+  "theme_color": "#007AFF",
+  "scope": "./",
+  "icons": [
+    {
+      "src": "./assets/icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "./assets/icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
