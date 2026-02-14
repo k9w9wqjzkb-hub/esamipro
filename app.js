@@ -44,16 +44,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="report-card" style="padding:12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; background:white">
                     <div>
                         <b>${p.name}</b> <small style="color:gray">(${p.unit})</small>
-                        <br><small>Range: ${p.min || 'N/A'} - ${p.max || 'N/A'}</small>
+                        <br><small>Range: ${p.min !== null ? p.min : 'N/A'} - ${p.max !== null ? p.max : 'N/A'}</small>
                     </div>
                     <div style="display:flex; gap:15px">
-                        <i class="fas fa-edit" onclick="editDictItem(${index})" style="color:var(--ios-blue); cursor:pointer"></i>
-                        <i class="fas fa-trash" onclick="deleteDictItem(${index})" style="color:var(--danger); cursor:pointer"></i>
+                        <i class="fas fa-edit" onclick="editDictItem(${index})" style="color:var(--ios-blue); cursor:pointer; padding:5px"></i>
+                        <i class="fas fa-trash" onclick="deleteDictItem(${index})" style="color:var(--danger); cursor:pointer; padding:5px"></i>
                     </div>
                 </div>
             `).join('');
 
-        // Aggiorna anche la select nel modal di inserimento
         const select = document.getElementById('examParamSelect');
         if(select) {
             select.innerHTML = '<option value="">Scegli...</option>' + 
@@ -61,31 +60,37 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Cancella parametro dal dizionario
-    window.deleteDictItem = (index) => {
-        if(confirm(`Eliminare "${dict[index].name}" dal dizionario? I dati nei report passati rimarranno, ma non potrai più selezionarlo per i nuovi.`)) {
-            dict.splice(index, 1);
-            saveDict();
-        }
-    };
-
-    // Modifica parametro
     window.editDictItem = (index) => {
         const p = dict[index];
+        
         const newName = prompt("Nome parametro:", p.name);
-        if(!newName) return;
+        if (newName === null) return; 
+
         const newUnit = prompt("Unità di misura:", p.unit);
-        const newMin = prompt("Valore Minimo:", p.min);
-        const newMax = prompt("Valore Massimo:", p.max);
+        if (newUnit === null) return;
+
+        const newMinStr = prompt("Valore Minimo (lascia vuoto se nessuno):", p.min !== null ? p.min : "");
+        if (newMinStr === null) return;
+
+        const newMaxStr = prompt("Valore Massimo (lascia vuoto se nessuno):", p.max !== null ? p.max : "");
+        if (newMaxStr === null) return;
 
         dict[index] = {
             ...p,
             name: newName,
             unit: newUnit,
-            min: parseFloat(newMin) || null,
-            max: parseFloat(newMax) || null
+            min: newMinStr === "" ? null : parseFloat(newMinStr),
+            max: newMaxStr === "" ? null : parseFloat(newMaxStr)
         };
+
         saveDict();
+    };
+
+    window.deleteDictItem = (index) => {
+        if(confirm(`Eliminare "${dict[index].name}" dal dizionario?`)) {
+            dict.splice(index, 1);
+            saveDict();
+        }
     };
 
     function saveDict() {
@@ -255,7 +260,5 @@ document.addEventListener('DOMContentLoaded', () => {
         sel.dispatchEvent(new Event('change'));
     }
 
-    // Inizializzazione
     showView('dashboard');
-    renderDictList();
 });
