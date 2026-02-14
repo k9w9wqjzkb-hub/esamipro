@@ -11,54 +11,87 @@ document.addEventListener('DOMContentLoaded', () => {
     let tempExams = [];
     const mainAddBtn = document.getElementById('mainAddBtn');
 
-    // --- NAVIGAZIONE E VISIBILITÀ TASTO + ---
+    // --- NAVIGAZIONE ---
     function showView(target) {
-        // Nascondi tutte le viste
         document.querySelectorAll('.app-view').forEach(v => v.style.display = 'none');
-        // Mostra la vista selezionata
         document.getElementById(`view-${target}`).style.display = 'block';
         
-        // Gestione classi attive sulle tab
         document.querySelectorAll('.tab-item').forEach(t => {
             t.classList.toggle('active', t.dataset.view === target);
         });
 
-        // Mostra il tasto "+" SOLO nella Dashboard
         if (mainAddBtn) {
             mainAddBtn.style.display = (target === 'dashboard') ? 'block' : 'none';
         }
 
-        // Trigger rendering specifico
         if(target === 'trends') renderTrendPage();
         if(target === 'history') renderHistory();
         if(target === 'dashboard') renderDashboard();
+        if(target === 'settings') renderDictList();
     }
 
     document.querySelectorAll('.tab-item').forEach(tab => {
-        tab.onclick = (e) => {
-            e.preventDefault();
-            showView(tab.dataset.view);
-        };
+        tab.onclick = (e) => { e.preventDefault(); showView(tab.dataset.view); };
     });
 
-    // --- DIZIONARIO (CONFIG) ---
-    const renderDictList = () => {
+    // --- GESTIONE DIZIONARIO (Config) ---
+    window.renderDictList = () => {
         const list = document.getElementById('dictionaryList');
-        if(list) {
-            list.innerHTML = dict.map(p => `
-                <div class="report-card" style="padding:12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center">
-                    <span><b>${p.name}</b> (${p.unit})</span>
-                    <i class="fas fa-check-circle" style="color:var(--success)"></i>
+        if(!list) return;
+
+        list.innerHTML = `<h3 class="section-title" style="font-size:18px">Parametri Esistenti</h3>` + 
+            dict.map((p, index) => `
+                <div class="report-card" style="padding:12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; background:white">
+                    <div>
+                        <b>${p.name}</b> <small style="color:gray">(${p.unit})</small>
+                        <br><small>Range: ${p.min || 'N/A'} - ${p.max || 'N/A'}</small>
+                    </div>
+                    <div style="display:flex; gap:15px">
+                        <i class="fas fa-edit" onclick="editDictItem(${index})" style="color:var(--ios-blue); cursor:pointer"></i>
+                        <i class="fas fa-trash" onclick="deleteDictItem(${index})" style="color:var(--danger); cursor:pointer"></i>
+                    </div>
                 </div>
             `).join('');
-        }
-        // Aggiorna la select nel modal
+
+        // Aggiorna anche la select nel modal di inserimento
         const select = document.getElementById('examParamSelect');
         if(select) {
             select.innerHTML = '<option value="">Scegli...</option>' + 
                 dict.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
         }
     };
+
+    // Cancella parametro dal dizionario
+    window.deleteDictItem = (index) => {
+        if(confirm(`Eliminare "${dict[index].name}" dal dizionario? I dati nei report passati rimarranno, ma non potrai più selezionarlo per i nuovi.`)) {
+            dict.splice(index, 1);
+            saveDict();
+        }
+    };
+
+    // Modifica parametro
+    window.editDictItem = (index) => {
+        const p = dict[index];
+        const newName = prompt("Nome parametro:", p.name);
+        if(!newName) return;
+        const newUnit = prompt("Unità di misura:", p.unit);
+        const newMin = prompt("Valore Minimo:", p.min);
+        const newMax = prompt("Valore Massimo:", p.max);
+
+        dict[index] = {
+            ...p,
+            name: newName,
+            unit: newUnit,
+            min: parseFloat(newMin) || null,
+            max: parseFloat(newMax) || null
+        };
+        saveDict();
+    };
+
+    function saveDict() {
+        localStorage.setItem('param_dict', JSON.stringify(dict));
+        renderDictList();
+    }
 
     document.getElementById('paramConfigForm').onsubmit = (e) => {
         e.preventDefault();
@@ -69,12 +102,11 @@ document.addEventListener('DOMContentLoaded', () => {
             max: parseFloat(document.getElementById('confMax').value) || null,
             color: 'bg-blue'
         });
-        localStorage.setItem('param_dict', JSON.stringify(dict));
-        renderDictList();
+        saveDict();
         e.target.reset();
     };
 
-    // --- GESTIONE MODAL E RIGHE TEMPORANEE ---
+    // --- GESTIONE MODAL E REPORT ---
     if (mainAddBtn) {
         mainAddBtn.onclick = () => {
             document.getElementById('examModal').style.display = 'block';
@@ -101,6 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderTempList() {
         const container = document.getElementById('tempExamsList');
+        if(!container) return;
         container.innerHTML = tempExams.map((e, i) => `
             <div style="display:flex; justify-content:space-between; font-size:14px; margin-bottom:8px; background:white; padding:8px; border-radius:8px">
                 <span>${e.param}: <b>${e.val} ${e.unit}</b></span>
@@ -111,18 +144,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.removeTemp = (i) => { tempExams.splice(i,1); renderTempList(); };
 
-    // --- SALVATAGGIO REPORT ---
     document.getElementById('reportForm').onsubmit = (e) => {
         e.preventDefault();
         if(tempExams.length === 0) return alert("Aggiungi almeno un esame");
-        
         reports.push({
             id: Date.now(),
             date: document.getElementById('reportDate').value,
             location: document.getElementById('reportLocation').value,
             exams: [...tempExams]
         });
-
         localStorage.setItem('blood_reports_v2', JSON.stringify(reports));
         tempExams = [];
         document.getElementById('examModal').style.display = 'none';
@@ -131,11 +161,10 @@ document.addEventListener('DOMContentLoaded', () => {
         renderDashboard();
     };
 
-    // --- RENDERING DASHBOARD (HOME) ---
+    // --- DASHBOARD ---
     function renderDashboard() {
         const grid = document.getElementById('keyMetricsGrid');
         if(!grid) return;
-
         grid.innerHTML = dict.slice(0,4).map(p => {
             const allValues = [];
             reports.forEach(r => {
@@ -143,7 +172,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(found) allValues.push({ val: found.val, date: r.date });
             });
             const last = allValues.sort((a,b) => new Date(b.date) - new Date(a.date))[0];
-            
             const valStr = last ? `${last.val} <small>${p.unit}</small>` : '--';
             const isOut = last && ((p.min && last.val < p.min) || (p.max && last.val > p.max));
             
@@ -151,16 +179,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="metric-card ${p.color}" style="${isOut ? 'border-left-color:var(--danger)' : ''}">
                     <label>${p.name}</label>
                     <div style="font-size:22px; font-weight:800; margin:8px 0">${valStr}</div>
-                    <small style="color:${isOut ? 'var(--danger)' : 'inherit'}">
-                        ${isOut ? 'FUORI RANGE' : (last ? 'NORMALE' : 'NO DATI')}
-                    </small>
+                    <small style="color:${isOut ? 'var(--danger)' : 'inherit'}">${isOut ? 'FUORI RANGE' : (last ? 'NORMALE' : 'NO DATI')}</small>
                 </div>`;
         }).join('');
     }
 
-    // --- STORICO A FISARMONICA ---
+    // --- STORICO ---
     function renderHistory() {
         const hist = document.getElementById('historyList');
+        if(!hist) return;
         hist.innerHTML = reports.sort((a,b) => new Date(b.date) - new Date(a.date)).map(r => `
             <div class="report-card">
                 <div class="report-header" onclick="toggleReport(${r.id})">
@@ -173,7 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span>${e.param}</span><b>${e.val} ${e.unit}</b>
                         </div>
                     `).join('')}
-                    <button class="btn-del" style="color:var(--danger); background:none; border:none; width:100%; padding-top:15px; font-weight:600" onclick="delReport(${r.id})">Elimina Report</button>
+                    <button style="color:var(--danger); background:none; border:none; width:100%; padding-top:15px; font-weight:600; cursor:pointer" onclick="delReport(${r.id})">Elimina Report</button>
                 </div>
             </div>
         `).join('') || '<p style="text-align:center; color:gray">Vuoto</p>';
@@ -207,9 +234,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(f) pts.push({ x: r.date, y: f.val });
             });
             pts.sort((a,b) => new Date(a.x) - new Date(b.x));
-
+            const ctx = document.getElementById('mainTrendChart').getContext('2d');
             if(tChart) tChart.destroy();
-            tChart = new Chart(document.getElementById('mainTrendChart').getContext('2d'), {
+            tChart = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: pts.map(p => p.x),
