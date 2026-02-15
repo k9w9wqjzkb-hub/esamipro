@@ -32,7 +32,13 @@ body {
     z-index: 1000; 
 }
 
-.navbar h1 { margin: 0; font-size: 17px; font-weight: 600; }
+.navbar h1 {
+    font-size: 26px;        /* Aumentato da 18-20px originali */
+    font-weight: 800;       /* Molto marcato per stile iOS */
+    letter-spacing: -0.5px; /* Più elegante e compatto */
+    margin: 0;
+    color: var(--dark);     /* Assicurati che sia il colore scuro principale */
+}
 
 .navbar-right { 
     position: absolute; 
