@@ -1,11 +1,12 @@
 :root {
     --ios-blue: #007AFF; 
-    --ios-bg: #F2F2F7; /* Ripristinato grigio chiaro iOS standard per leggibilità */
+    --ios-bg: #F2F2F7; 
     --card-bg: #FFFFFF;
     --text: #1C1C1E; 
     --gray: #8E8E93; 
     --danger: #FF3B30; 
     --success: #34C759;
+    --dark: #000000;
 }
 
 body { 
@@ -33,11 +34,11 @@ body {
 }
 
 .navbar h1 {
-    font-size: 26px;        /* Aumentato da 18-20px originali */
-    font-weight: 800;       /* Molto marcato per stile iOS */
-    letter-spacing: -0.5px; /* Più elegante e compatto */
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
     margin: 0;
-    color: var(--dark);     /* Assicurati che sia il colore scuro principale */
+    color: var(--dark);
 }
 
 .navbar-right { 
@@ -47,27 +48,42 @@ body {
     color: var(--ios-blue); 
     font-size: 26px; 
     cursor: pointer; 
-    display: block; /* Visibile di base, gestito da JS nelle altre pagine */
 }
 
 /* --- LAYOUT PRINCIPALE --- */
 .main-content { padding: 95px 16px 110px; }
 .section-title { font-size: 22px; font-weight: 700; margin: 20px 0 12px 4px; }
 
-/* --- DASHBOARD & CARD COLORS --- */
-.key-metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-
-.metric-card { 
-    padding: 16px; 
-    border-radius: 18px; 
-    background: white; 
-    border-left: 5px solid var(--gray); 
-    box-shadow: 0 2px 8px rgba(0,0,0,0.04); 
+/* --- DASHBOARD (8 CARDS OPTIMIZATION) --- */
+.key-metrics-grid { 
+    display: grid; 
+    grid-template-columns: 1fr 1fr; 
+    gap: 12px; 
 }
 
-.metric-card label { font-size: 11px; color: var(--gray); font-weight: 700; text-transform: uppercase; }
+.metric-card { 
+    padding: 20px; /* Ridotto leggermente per far stare 8 card */
+    border-radius: 20px; 
+    background: white; 
+    border-left: 6px solid var(--gray); 
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
 
-/* Classi colori dinamiche caricate da JS */
+/* Ottimizzazione testi per card piccole */
+.metric-card label { 
+    font-size: 12px; 
+    color: var(--gray); 
+    font-weight: 700; 
+    text-transform: uppercase; 
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* --- COLORI DINAMICI --- */
 .bg-blue { border-left-color: var(--ios-blue) !important; }
 .bg-red { border-left-color: var(--danger) !important; }
 .bg-orange { border-left-color: #FF9500 !important; }
@@ -95,13 +111,21 @@ body {
     position: relative; 
     max-height: 85vh; 
     overflow-y: auto; 
+    box-sizing: border-box;
 }
 
-.close-button { position: absolute; right: 18px; top: 15px; font-size: 24px; color: var(--gray); cursor: pointer; }
+.close-button, .close-tools, .close-edit-dict { 
+    position: absolute; 
+    right: 18px; 
+    top: 15px; 
+    font-size: 24px; 
+    color: var(--gray); 
+    cursor: pointer; 
+}
 
 /* Fix sormontamento campi */
 .input-stack { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
-.input-group { display: flex; flex-direction: column; }
+.input-group { display: flex; flex-direction: column; margin-bottom: 12px; }
 .label-small { font-size: 10px; color: var(--gray); font-weight: 800; margin-bottom: 5px; margin-left: 5px; text-transform: uppercase; }
 
 .ios-select, input { 
@@ -112,25 +136,21 @@ body {
     font-size: 16px; 
     background: #fff; 
     box-sizing: border-box; 
-    appearance: none;
 }
-
-/* Liste ed Elementi temporanei */
-.temp-list-container { 
-    background: #F2F2F7; 
-    padding: 12px; 
-    border-radius: 12px; 
-    margin: 15px 0; 
-    border: 1px dashed #C6C6C8; 
-}
-
-.add-row-box { background: #F2F2F7; padding: 15px; border-radius: 15px; }
 
 /* --- BOTTONI --- */
-.button { width: 100%; padding: 16px; border-radius: 14px; font-weight: 600; border: none; cursor: pointer; font-size: 17px; transition: opacity 0.2s; }
+.button { width: 100%; padding: 16px; border-radius: 14px; font-weight: 600; border: none; cursor: pointer; font-size: 17px; transition: opacity 0.2s; margin-bottom: 8px; }
 .button:active { opacity: 0.7; }
 .primary-button { background: var(--ios-blue); color: white; }
-.secondary-button { background: #fff; color: var(--ios-blue); border: 1px solid var(--ios-blue); margin-top: 10px; }
+.secondary-button { background: #fff; color: var(--ios-blue); border: 1px solid var(--ios-blue); }
+
+/* Card bianche per liste e config */
+.card-white {
+    background: white;
+    padding: 16px;
+    border-radius: 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
 
 /* --- STORICO (REPORT CARD) --- */
 .report-card { background: white; border-radius: 16px; margin-bottom: 12px; border: 0.5px solid #C6C6C8; overflow: hidden; }

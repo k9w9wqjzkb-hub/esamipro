@@ -1,11 +1,17 @@
 document.addEventListener('DOMContentLoaded', () => {
     // Database
     let reports = JSON.parse(localStorage.getItem('blood_reports_v2')) || [];
+    
+    // Dizionario aggiornato con i tuoi 8 parametri specifici
     let dict = JSON.parse(localStorage.getItem('param_dict')) || [
-        { name: 'Glucosio', unit: 'mg/dL', min: 70, max: 100, color: 'bg-blue' },
-        { name: 'Colesterolo', unit: 'mg/dL', min: 150, max: 200, color: 'bg-red' },
-        { name: 'Sideremia', unit: 'µg/dL', min: 60, max: 160, color: 'bg-orange' },
-        { name: 'Vitamina D', unit: 'ng/mL', min: 30, max: 100, color: 'bg-purple' }
+        { name: 'COLESTEROLO', unit: 'mg/dL', min: 120, max: 200, color: 'bg-orange' },
+        { name: 'COLESTEROLO HDL', unit: 'mg/dL', min: 40, max: 60, color: 'bg-orange' },
+        { name: 'COLESTEROLO LDL', unit: 'mg/dL', min: 0, max: 130, color: 'bg-orange' },
+        { name: 'TRIGLICERIDI', unit: 'mg/dL', min: 50, max: 150, color: 'bg-orange' },
+        { name: 'GLUCOSIO', unit: 'mg/dL', min: 70, max: 100, color: 'bg-blue' },
+        { name: 'LEUCOCITI', unit: '10^3/µL', min: 4, max: 10, color: 'bg-blue' },
+        { name: 'EMOGLOBINA', unit: 'g/dL', min: 13, max: 17, color: 'bg-blue' },
+        { name: 'VITAMINA D', unit: 'ng/mL', min: 30, max: 100, color: 'bg-purple' }
     ];
 
     let tempExams = [];
@@ -46,7 +52,45 @@ document.addEventListener('DOMContentLoaded', () => {
         closeTools.onclick = () => toolsModal.style.display = 'none';
     }
 
-    // Funzione export JSON
+    // --- GESTIONE MODIFICA AVANZATA DIZIONARIO (MASCHERA UNICA) ---
+    const editDictModal = document.getElementById('editDictModal');
+    const closeEditDict = document.querySelector('.close-edit-dict');
+
+    if (closeEditDict) {
+        closeEditDict.onclick = () => editDictModal.style.display = 'none';
+    }
+
+    window.editDictItem = (index) => {
+        const p = dict[index];
+        document.getElementById('editDictIndex').value = index;
+        document.getElementById('editDictName').value = p.name;
+        document.getElementById('editDictUnit').value = p.unit;
+        document.getElementById('editDictMin').value = p.min !== null ? p.min : "";
+        document.getElementById('editDictMax').value = p.max !== null ? p.max : "";
+        
+        editDictModal.style.display = 'block';
+    };
+
+    document.getElementById('editDictForm').onsubmit = (e) => {
+        e.preventDefault();
+        const index = document.getElementById('editDictIndex').value;
+        const newMin = document.getElementById('editDictMin').value;
+        const newMax = document.getElementById('editDictMax').value;
+
+        dict[index] = {
+            ...dict[index],
+            name: document.getElementById('editDictName').value.trim(),
+            unit: document.getElementById('editDictUnit').value.trim(),
+            min: newMin === "" ? null : parseFloat(newMin),
+            max: newMax === "" ? null : parseFloat(newMax)
+        };
+
+        saveDict();
+        editDictModal.style.display = 'none';
+        renderDashboard(); 
+    };
+
+    // Funzioni Backup & CSV
     window.exportJSON = () => {
         const data = { reports, dict };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -57,7 +101,6 @@ document.addEventListener('DOMContentLoaded', () => {
         a.click();
     };
 
-    // Funzione import JSON
     window.importJSON = (event) => {
         const file = event.target.files[0];
         if (!file) return;
@@ -66,18 +109,17 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const data = JSON.parse(e.target.result);
                 if (data.reports && data.dict) {
-                    if (confirm("Attenzione: questo sovrascriverà tutti i dati attuali. Vuoi procedere?")) {
+                    if (confirm("Attenzione: questo sovrascriverà tutto. Vuoi procedere?")) {
                         localStorage.setItem('blood_reports_v2', JSON.stringify(data.reports));
                         localStorage.setItem('param_dict', JSON.stringify(data.dict));
                         location.reload();
                     }
-                } else { alert("File di backup non valido."); }
-            } catch (err) { alert("Errore nel caricamento del file."); }
+                } else { alert("File non valido."); }
+            } catch (err) { alert("Errore nel caricamento."); }
         };
         reader.readAsText(file);
     };
 
-    // Funzione export CSV
     window.exportCSV = () => {
         let csv = "Data,Luogo,Parametro,Valore,Unita\n";
         reports.forEach(r => {
@@ -118,24 +160,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    window.editDictItem = (index) => {
-        const p = dict[index];
-        const newName = prompt("Nome parametro:", p.name);
-        if (newName === null) return;
-        const newUnit = prompt("Unità di misura:", p.unit);
-        const newMin = prompt("Minimo:", p.min !== null ? p.min : "");
-        const newMax = prompt("Massimo:", p.max !== null ? p.max : "");
-
-        dict[index] = {
-            ...p,
-            name: newName,
-            unit: newUnit,
-            min: newMin === "" ? null : parseFloat(newMin),
-            max: newMax === "" ? null : parseFloat(newMax)
-        };
-        saveDict();
-    };
-
     window.deleteDictItem = (index) => {
         if(confirm(`Eliminare "${dict[index].name}"?`)) {
             dict.splice(index, 1);
@@ -151,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('paramConfigForm').onsubmit = (e) => {
         e.preventDefault();
         dict.push({
-            name: document.getElementById('confName').value,
+            name: document.getElementById('confName').value.toUpperCase(),
             unit: document.getElementById('confUnit').value,
             min: parseFloat(document.getElementById('confMin').value) || null,
             max: parseFloat(document.getElementById('confMax').value) || null,
@@ -219,7 +243,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderDashboard() {
         const grid = document.getElementById('keyMetricsGrid');
         if(!grid) return;
-        grid.innerHTML = dict.slice(0,6).map(p => {
+        
+        // Aggiornato a slice(0,8) per mostrare i tuoi 8 parametri chiave
+        grid.innerHTML = dict.slice(0,8).map(p => {
             const allValues = [];
             reports.forEach(r => {
                 const found = r.exams.find(ex => ex.param === p.name);
@@ -230,9 +256,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const isOut = last && ((p.min !== null && last.val < p.min) || (p.max !== null && last.val > p.max));
             return `
                 <div class="metric-card ${p.color}" style="${isOut ? 'border-left-color:var(--danger)' : ''}">
-                    <label>${p.name}</label>
-                    <div style="font-size:20px; font-weight:800; margin:8px 0">${valStr}</div>
-                    <small style="color:${isOut ? 'var(--danger)' : 'var(--gray)'}">${isOut ? 'FUORI RANGE' : (last ? 'NORMALE' : 'NO DATI')}</small>
+                    <label style="font-size: 10px; opacity: 0.8;">${p.name}</label>
+                    <div style="font-size:18px; font-weight:800; margin:4px 0">${valStr}</div>
+                    <small style="font-size: 9px; color:${isOut ? 'var(--danger)' : 'var(--gray)'}">${isOut ? 'FUORI RANGE' : (last ? 'NORMALE' : 'NO DATI')}</small>
                 </div>`;
         }).join('');
     }
