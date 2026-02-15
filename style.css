@@ -199,3 +199,8 @@ textarea {
 .tab-item { text-decoration: none; color: var(--gray); display: flex; flex-direction: column; align-items: center; font-size: 10px; }
 .tab-item.active { color: var(--ios-blue); }
 .tab-item i { font-size: 22px; margin-bottom: 4px; }
+
+html, body {
+  touch-action: none; /* blocca gesture di zoom */
+  overscroll-behavior: none;
+}
