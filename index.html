@@ -38,7 +38,11 @@
         </div>
 
         <div id="view-settings" class="app-view" style="display:none">
-            <h2 class="section-title">Configurazione</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding-right: 5px;">
+                <h2 class="section-title">Configurazione</h2>
+                <i class="fas fa-cog" id="btnTools" style="color: var(--ios-blue); font-size: 20px; cursor: pointer; padding: 10px;"></i>
+            </div>
+
             <div class="card-white">
                 <form id="paramConfigForm">
                     <input type="text" id="confName" placeholder="Nome Esame (es. Ferro)" required>
@@ -54,6 +58,28 @@
         </div>
     </main>
 
+    <div id="toolsModal" class="modal">
+        <div class="modal-content">
+            <span class="close-tools" style="float:right; cursor:pointer; font-size:24px; color:var(--gray)">&times;</span>
+            <h3 style="margin-top:0">Gestione Dati</h3>
+            <p style="font-size: 13px; color: var(--gray); margin-bottom: 20px;">Esporta i tuoi dati per sicurezza o importali da un backup precedente.</p>
+            
+            <button onclick="exportJSON()" class="button secondary-button" style="text-align: left;">
+                <i class="fas fa-file-download" style="margin-right: 10px;"></i> Backup Completo (JSON)
+            </button>
+            
+            <button onclick="document.getElementById('importFile').click()" class="button secondary-button" style="text-align: left;">
+                <i class="fas fa-file-upload" style="margin-right: 10px;"></i> Ripristina Backup
+            </button>
+            
+            <button onclick="exportCSV()" class="button secondary-button" style="text-align: left;">
+                <i class="fas fa-file-csv" style="margin-right: 10px;"></i> Esporta per Excel (CSV)
+            </button>
+            
+            <input type="file" id="importFile" style="display:none" onchange="importJSON(event)" accept=".json">
+        </div>
+    </div>
+
     <div id="examModal" class="modal">
         <div class="modal-content">
             <span class="close-button">&times;</span>
@@ -66,19 +92,18 @@
                     </div>
                     <div class="input-group" style="margin-top:10px">
                         <label class="label-small">LUOGO / LABORATORIO</label>
-                        <input type="text" id="reportLocation" placeholder="Es: Laboratorio Analisi" required>
+                        <input type="text" id="reportLocation" placeholder="Es: Ospedale Maggiore" required>
                     </div>
                 </div>
                 
-                <div id="tempExamsList" class="temp-list-container">
-                    <span style="color:gray; font-size:12px">Nessun esame inserito</span>
-                </div>
+                <div id="tempExamsList" class="temp-list-container" style="margin: 15px 0; min-height: 40px;">
+                    </div>
 
-                <div class="add-row-box">
+                <div class="add-row-box" style="background: var(--ios-bg); padding: 15px; border-radius: 12px;">
                     <label class="label-small">AGGIUNGI PARAMETRO</label>
                     <select id="examParamSelect" class="ios-select"></select>
                     <input type="number" id="examValue" step="0.1" placeholder="Valore" style="margin-top:8px">
-                    <button type="button" id="btnAddRow" class="button secondary-button">+ Inserisci Riga</button>
+                    <button type="button" id="btnAddRow" class="button secondary-button" style="margin-top: 10px; background: white;">+ Inserisci Riga</button>
                 </div>
                 
                 <button type="submit" class="button primary-button" style="margin-top:20px">Salva Report Finale</button>

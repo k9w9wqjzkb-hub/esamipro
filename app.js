@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // Database raggruppato per report (Data + Luogo + Array Esami)
+    // Database
     let reports = JSON.parse(localStorage.getItem('blood_reports_v2')) || [];
     let dict = JSON.parse(localStorage.getItem('param_dict')) || [
         { name: 'Glucosio', unit: 'mg/dL', min: 70, max: 100, color: 'bg-blue' },
@@ -34,12 +34,70 @@ document.addEventListener('DOMContentLoaded', () => {
         tab.onclick = (e) => { e.preventDefault(); showView(tab.dataset.view); };
     });
 
-    // --- GESTIONE DIZIONARIO (Config) ---
+    // --- GESTIONE MODAL STRUMENTI (INGRANAGGIO) ---
+    const toolsModal = document.getElementById('toolsModal');
+    const btnTools = document.getElementById('btnTools');
+    const closeTools = document.querySelector('.close-tools');
+
+    if (btnTools) {
+        btnTools.onclick = () => toolsModal.style.display = 'block';
+    }
+    if (closeTools) {
+        closeTools.onclick = () => toolsModal.style.display = 'none';
+    }
+
+    // Funzione export JSON
+    window.exportJSON = () => {
+        const data = { reports, dict };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `backup_esami_${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+    };
+
+    // Funzione import JSON
+    window.importJSON = (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+                if (data.reports && data.dict) {
+                    if (confirm("Attenzione: questo sovrascriverà tutti i dati attuali. Vuoi procedere?")) {
+                        localStorage.setItem('blood_reports_v2', JSON.stringify(data.reports));
+                        localStorage.setItem('param_dict', JSON.stringify(data.dict));
+                        location.reload();
+                    }
+                } else { alert("File di backup non valido."); }
+            } catch (err) { alert("Errore nel caricamento del file."); }
+        };
+        reader.readAsText(file);
+    };
+
+    // Funzione export CSV
+    window.exportCSV = () => {
+        let csv = "Data,Luogo,Parametro,Valore,Unita\n";
+        reports.forEach(r => {
+            r.exams.forEach(e => {
+                csv += `${r.date},"${r.location.replace(/"/g, '""')}",${e.param},${e.val},${e.unit}\n`;
+            });
+        });
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `report_esami_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+    };
+
+    // --- GESTIONE DIZIONARIO ---
     window.renderDictList = () => {
         const list = document.getElementById('dictionaryList');
         if(!list) return;
-
-        list.innerHTML = `<h3 class="section-title" style="font-size:18px">Parametri Esistenti</h3>` + 
+        list.innerHTML = `<h3 class="section-title" style="font-size:18px">Parametri Salvati</h3>` + 
             dict.map((p, index) => `
                 <div class="report-card" style="padding:12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; background:white">
                     <div>
@@ -47,8 +105,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         <br><small>Range: ${p.min !== null ? p.min : 'N/A'} - ${p.max !== null ? p.max : 'N/A'}</small>
                     </div>
                     <div style="display:flex; gap:15px">
-                        <i class="fas fa-edit" onclick="editDictItem(${index})" style="color:var(--ios-blue); cursor:pointer; padding:5px"></i>
-                        <i class="fas fa-trash" onclick="deleteDictItem(${index})" style="color:var(--danger); cursor:pointer; padding:5px"></i>
+                        <i class="fas fa-edit" onclick="editDictItem(${index})" style="color:var(--ios-blue); cursor:pointer"></i>
+                        <i class="fas fa-trash" onclick="deleteDictItem(${index})" style="color:var(--danger); cursor:pointer"></i>
                     </div>
                 </div>
             `).join('');
@@ -62,32 +120,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.editDictItem = (index) => {
         const p = dict[index];
-        
         const newName = prompt("Nome parametro:", p.name);
-        if (newName === null) return; 
-
+        if (newName === null) return;
         const newUnit = prompt("Unità di misura:", p.unit);
-        if (newUnit === null) return;
-
-        const newMinStr = prompt("Valore Minimo (lascia vuoto se nessuno):", p.min !== null ? p.min : "");
-        if (newMinStr === null) return;
-
-        const newMaxStr = prompt("Valore Massimo (lascia vuoto se nessuno):", p.max !== null ? p.max : "");
-        if (newMaxStr === null) return;
+        const newMin = prompt("Minimo:", p.min !== null ? p.min : "");
+        const newMax = prompt("Massimo:", p.max !== null ? p.max : "");
 
         dict[index] = {
             ...p,
             name: newName,
             unit: newUnit,
-            min: newMinStr === "" ? null : parseFloat(newMinStr),
-            max: newMaxStr === "" ? null : parseFloat(newMaxStr)
+            min: newMin === "" ? null : parseFloat(newMin),
+            max: newMax === "" ? null : parseFloat(newMax)
         };
-
         saveDict();
     };
 
     window.deleteDictItem = (index) => {
-        if(confirm(`Eliminare "${dict[index].name}" dal dizionario?`)) {
+        if(confirm(`Eliminare "${dict[index].name}"?`)) {
             dict.splice(index, 1);
             saveDict();
         }
@@ -111,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
         e.target.reset();
     };
 
-    // --- GESTIONE MODAL E REPORT ---
+    // --- AGGIUNTA REFERTO ---
     if (mainAddBtn) {
         mainAddBtn.onclick = () => {
             document.getElementById('examModal').style.display = 'block';
@@ -129,7 +179,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const name = document.getElementById('examParamSelect').value;
         const val = parseFloat(document.getElementById('examValue').value);
         if(!name || isNaN(val)) return alert("Inserisci parametro e valore");
-        
         const config = dict.find(d => d.name === name);
         tempExams.push({ param: name, val: val, unit: config.unit });
         renderTempList();
@@ -166,11 +215,11 @@ document.addEventListener('DOMContentLoaded', () => {
         renderDashboard();
     };
 
-    // --- DASHBOARD ---
+    // --- DASHBOARD & STORICO ---
     function renderDashboard() {
         const grid = document.getElementById('keyMetricsGrid');
         if(!grid) return;
-        grid.innerHTML = dict.slice(0,4).map(p => {
+        grid.innerHTML = dict.slice(0,6).map(p => {
             const allValues = [];
             reports.forEach(r => {
                 const found = r.exams.find(ex => ex.param === p.name);
@@ -178,18 +227,16 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             const last = allValues.sort((a,b) => new Date(b.date) - new Date(a.date))[0];
             const valStr = last ? `${last.val} <small>${p.unit}</small>` : '--';
-            const isOut = last && ((p.min && last.val < p.min) || (p.max && last.val > p.max));
-            
+            const isOut = last && ((p.min !== null && last.val < p.min) || (p.max !== null && last.val > p.max));
             return `
                 <div class="metric-card ${p.color}" style="${isOut ? 'border-left-color:var(--danger)' : ''}">
                     <label>${p.name}</label>
-                    <div style="font-size:22px; font-weight:800; margin:8px 0">${valStr}</div>
-                    <small style="color:${isOut ? 'var(--danger)' : 'inherit'}">${isOut ? 'FUORI RANGE' : (last ? 'NORMALE' : 'NO DATI')}</small>
+                    <div style="font-size:20px; font-weight:800; margin:8px 0">${valStr}</div>
+                    <small style="color:${isOut ? 'var(--danger)' : 'var(--gray)'}">${isOut ? 'FUORI RANGE' : (last ? 'NORMALE' : 'NO DATI')}</small>
                 </div>`;
         }).join('');
     }
 
-    // --- STORICO ---
     function renderHistory() {
         const hist = document.getElementById('historyList');
         if(!hist) return;
@@ -217,7 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.delReport = (id) => {
-        if(confirm("Eliminare intero report?")) {
+        if(confirm("Eliminare report?")) {
             reports = reports.filter(r => r.id !== id);
             localStorage.setItem('blood_reports_v2', JSON.stringify(reports));
             renderHistory();
@@ -230,8 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderTrendPage() {
         const sel = document.getElementById('trendParamSelector');
         if(!sel) return;
-        const unique = dict.map(d => d.name);
-        sel.innerHTML = unique.map(u => `<option value="${u}">${u}</option>`).join('');
+        sel.innerHTML = dict.map(u => `<option value="${u.name}">${u.name}</option>`).join('');
         sel.onchange = () => {
             const pts = [];
             reports.forEach(r => {
@@ -245,14 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 type: 'line',
                 data: {
                     labels: pts.map(p => p.x),
-                    datasets: [{ 
-                        label: sel.value, 
-                        data: pts.map(p => p.y), 
-                        borderColor: '#007AFF', 
-                        tension: 0.3,
-                        fill: true,
-                        backgroundColor: 'rgba(0,122,255,0.1)'
-                    }]
+                    datasets: [{ label: sel.value, data: pts.map(p => p.y), borderColor: '#007AFF', tension: 0.3, fill: true, backgroundColor: 'rgba(0,122,255,0.1)' }]
                 },
                 options: { responsive: true, maintainAspectRatio: false }
             });
