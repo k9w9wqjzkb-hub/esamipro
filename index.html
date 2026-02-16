@@ -1,208 +1,234 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>iMieiEsami Pro</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link rel="stylesheet" href="style.css">
-    <link rel="apple-touch-icon" href="assets/icon.png">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>iMieiEsami Pro</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="apple-touch-icon" href="assets/icon.png">
 </head>
 <body>
-    <header class="navbar">
-        <h1>I Miei Esami</h1>
-        <div id="mainAddBtn" class="navbar-right">
-            <i class="fas fa-plus-circle"></i>
+  <header class="navbar">
+    <h1>I Miei Esami</h1>
+  </header>
+
+  <main class="main-content">
+
+    <div id="view-dashboard" class="app-view">
+      <div class="section-head">
+        <h2 class="section-title" style="margin:0">Parametri Chiave</h2>
+      </div>
+
+      <div id="overallStatus" class="card-white pill" style="margin-bottom:12px"></div>
+
+      <div id="keyMetricsGrid" class="key-metrics-grid"></div>
+
+      <div id="outOfRangeSection" style="display:none; margin-top:18px">
+        <div class="section-head" style="margin: 0 4px 12px;">
+          <h2 class="section-title" style="margin:0">Anomalie</h2>
+          <button id="btnShareAnomalies" class="chip-btn" type="button" aria-label="Condividi anomalie">
+            <i class="fab fa-whatsapp"></i> Condividi
+          </button>
         </div>
-    </header>
-
-    <main class="main-content">
-        <div id="view-dashboard" class="app-view">
-            <h2 class="section-title">Parametri Chiave</h2>
-            <div id="overallStatus" class="card-white pill pill-ok" style="margin-bottom:12px"></div>
-            <div id="keyMetricsGrid" class="key-metrics-grid"></div>
-
-            <div id="outOfRangeSection" style="display:none; margin-top:18px">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin: 0 4px 10px;">
-                    <h2 class="section-title" style="margin:0">Anomalie</h2>
-                    <button id="btnShareAnomalies" class="chip-btn"><i class="fab fa-whatsapp"></i> Condividi</button>
-                </div>
-                <div id="outOfRangeList"></div>
-            </div>
-        </div>
-
-        <div id="view-trends" class="app-view" style="display:none">
-            <h2 class="section-title">Analisi Trend</h2>
-            <div class="card-white" style="margin-bottom: 15px;">
-                <div style="display:flex; gap:10px; align-items:center">
-                    <select id="trendParamSelector" class="ios-select" style="flex:1"></select>
-                    <select id="trendMode" class="ios-select" style="width:160px">
-                        <option value="values">Valori</option>
-                        <option value="delta">Δ vs prec.</option>
-                        <option value="ma3">Media mobile 3</option>
-                    </select>
-                </div>
-            </div>
-            <div style="height: 320px; background:white; padding:15px; border-radius:18px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
-                <canvas id="mainTrendChart"></canvas>
-            </div>
-        </div>
-
-        <div id="view-history" class="app-view" style="display:none">
-            <h2 class="section-title">Storico Referti</h2>
-            <div id="historyList"></div>
-        </div>
-
-        <div id="view-settings" class="app-view" style="display:none">
-            <div style="display: flex; justify-content: space-between; align-items: center; padding-right: 5px;">
-                <h2 class="section-title">Configurazione</h2>
-                <i class="fas fa-cog" id="btnTools" style="color: var(--ios-blue); font-size: 20px; cursor: pointer; padding: 10px;"></i>
-            </div>
-
-            <div class="card-white">
-                <form id="paramConfigForm">
-                    <input type="text" id="confName" placeholder="Nome Esame (es. Ferro)" required>
-                    <input type="text" id="confUnit" placeholder="Unità (es. mg/dL)" required>
-                    <div class="input-row" style="display:flex; gap:10px; margin-top:10px">
-                        <input type="text" id="confCategory" placeholder="Categoria (es. Emocromo)" value="Altro">
-                        <input type="number" id="confDecimals" placeholder="Decimali" value="1" min="0" max="4">
-                    </div>
-                    <select id="confDirection" class="ios-select" style="margin-top:10px">
-                        <option value="range">Range</option>
-                        <option value="lower_better">Più basso è meglio</option>
-                        <option value="higher_better">Più alto è meglio</option>
-                    </select>
-                    <div class="input-row" style="display:flex; gap:10px; margin-top:10px">
-                        <input type="number" id="confMin" placeholder="Min" step="0.1">
-                        <input type="number" id="confMax" placeholder="Max" step="0.1">
-                    </div>
-                    <button type="submit" class="button primary-button" style="margin-top:15px">Aggiungi al Dizionario</button>
-                </form>
-            </div>
-            <div id="dictionaryList" style="margin-top:20px"></div>
-        </div>
-    </main>
-
-    <div id="toolsModal" class="modal">
-        <div class="modal-content">
-            <span class="close-tools" style="float:right; cursor:pointer; font-size:24px; color:var(--gray)">&times;</span>
-            <h3 style="margin-top:0">Gestione Dati</h3>
-            <p style="font-size: 13px; color: var(--gray); margin-bottom: 20px;">Esporta i tuoi dati per sicurezza o importali da un backup precedente.</p>
-            
-            <button onclick="exportJSON()" class="button secondary-button" style="text-align: left;">
-                <i class="fas fa-file-download" style="margin-right: 10px;"></i> Backup Completo (JSON)
-            </button>
-            
-            <button onclick="document.getElementById('importFile').click()" class="button secondary-button" style="text-align: left;">
-                <i class="fas fa-file-upload" style="margin-right: 10px;"></i> Ripristina Backup
-            </button>
-            
-            <button onclick="exportCSV()" class="button secondary-button" style="text-align: left;">
-                <i class="fas fa-file-csv" style="margin-right: 10px;"></i> Esporta per Excel (CSV)
-            </button>
-            
-            <input type="file" id="importFile" style="display:none" onchange="importJSON(event)" accept=".json">
-        </div>
+        <div id="outOfRangeList"></div>
+      </div>
     </div>
 
-    <div id="editDictModal" class="modal">
-        <div class="modal-content">
-            <span class="close-edit-dict" style="float:right; cursor:pointer; font-size:24px; color:var(--gray)">&times;</span>
-            <h3 style="margin-top:0">Modifica Parametro</h3>
-            <form id="editDictForm">
-                <input type="hidden" id="editDictIndex">
-                <div class="input-group">
-                    <label class="label-small">NOME ESAME</label>
-                    <input type="text" id="editDictName" required>
-                </div>
-                <div class="input-group" style="margin-top:10px">
-                    <label class="label-small">UNITÀ DI MISURA</label>
-                    <input type="text" id="editDictUnit" required>
-                </div>
-                <div class="input-row" style="display:flex; gap:10px; margin-top:10px">
-                    <div style="flex:1">
-                        <label class="label-small">CATEGORIA</label>
-                        <input type="text" id="editDictCategory" placeholder="Altro">
-                    </div>
-                    <div style="flex:1">
-                        <label class="label-small">DECIMALI</label>
-                        <input type="number" id="editDictDecimals" min="0" max="4" step="1">
-                    </div>
-                </div>
-                <div class="input-group" style="margin-top:10px">
-                    <label class="label-small">DIREZIONE</label>
-                    <select id="editDictDirection" class="ios-select">
-                        <option value="range">Range</option>
-                        <option value="lower_better">Più basso è meglio</option>
-                        <option value="higher_better">Più alto è meglio</option>
-                    </select>
-                </div>
-                <div class="input-row" style="display:flex; gap:10px; margin-top:10px">
-                    <div style="flex:1">
-                        <label class="label-small">MIN</label>
-                        <input type="number" id="editDictMin" step="0.1">
-                    </div>
-                    <div style="flex:1">
-                        <label class="label-small">MAX</label>
-                        <input type="number" id="editDictMax" step="0.1">
-                    </div>
-                </div>
-                <button type="submit" class="button primary-button" style="margin-top:20px">Salva Modifiche</button>
-            </form>
+    <div id="view-trends" class="app-view" style="display:none">
+      <div class="section-head">
+        <h2 class="section-title" style="margin:0">Analisi Trend</h2>
+      </div>
+
+      <div class="card-white" style="margin-bottom: 12px;">
+        <div style="display:flex; gap:10px; align-items:center">
+          <select id="trendParamSelector" class="ios-select" style="flex:1"></select>
+          <select id="trendMode" class="ios-select" style="width:150px">
+            <option value="values">Valori</option>
+            <option value="delta">Δ vs prec.</option>
+            <option value="ma3">Media (3)</option>
+          </select>
         </div>
+      </div>
+
+      <div style="height: 330px; background:white; padding:15px; border-radius:18px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+        <canvas id="mainTrendChart"></canvas>
+      </div>
     </div>
 
-    <div id="examModal" class="modal">
-        <div class="modal-content">
-            <span class="close-button">&times;</span>
-            <h3 style="margin-top:0">Nuovo Referto</h3>
-            <form id="reportForm">
-                <div class="input-stack">
-                    <div class="input-group">
-                        <label class="label-small">DATA PRELIEVO</label>
-                        <input type="date" id="reportDate" required>
-                    </div>
-                    <div class="input-group" style="margin-top:10px">
-                        <label class="label-small">LUOGO / LABORATORIO</label>
-                        <input type="text" id="reportLocation" placeholder="Es: Ospedale Maggiore" required>
-                    </div>
-                    <div class="input-group" style="margin-top:10px">
-                        <label class="label-small">NOTE (digiuno, terapia, sintomi…)</label>
-                        <textarea id="reportNotes" rows="3" placeholder="Facoltativo" style="width:100%; padding:14px; border: 1px solid #D1D1D6; border-radius:12px; font-size:14px; box-sizing:border-box"></textarea>
-                    </div>
-                </div>
-                
-                <div id="tempExamsList" class="temp-list-container" style="margin: 15px 0; min-height: 40px;">
-                    </div>
-
-                <div class="add-row-box" style="background: var(--ios-bg); padding: 15px; border-radius: 12px;">
-                    <label class="label-small">AGGIUNGI PARAMETRO</label>
-                    <select id="examParamSelect" class="ios-select"></select>
-                    <input type="number" id="examValue" step="0.1" placeholder="Valore" style="margin-top:8px">
-                    <button type="button" id="btnAddRow" class="button secondary-button" style="margin-top: 10px; background: white;">+ Inserisci Riga</button>
-                </div>
-                
-                <button type="submit" class="button primary-button" style="margin-top:20px">Salva Report Finale</button>
-            </form>
-        </div>
+    <div id="view-history" class="app-view" style="display:none">
+      <div class="section-head">
+        <h2 class="section-title" style="margin:0">Storico Referti</h2>
+        <button id="historyAddBtn" class="icon-btn icon-btn-primary" aria-label="Inserisci referto">
+          <i class="fas fa-plus"></i>
+        </button>
+      </div>
+      <div id="historyList"></div>
     </div>
 
-    <nav class="tab-bar">
-        <a href="#" class="tab-item active" data-view="dashboard">
-            <i class="fas fa-th-large"></i><span>Home</span>
-        </a>
-        <a href="#" class="tab-item" data-view="trends">
-            <i class="fas fa-chart-line"></i><span>Trend</span>
-        </a>
-        <a href="#" class="tab-item" data-view="history">
-            <i class="fas fa-history"></i><span>Storico</span>
-        </a>
-        <a href="#" class="tab-item" data-view="settings">
-            <i class="fas fa-cog"></i><span>Config</span>
-        </a>
-    </nav>
+    <div id="view-settings" class="app-view" style="display:none">
+      <div class="section-head" style="margin:20px 4px 12px;">
+        <h2 class="section-title" style="margin:0">Configurazione</h2>
+        <button id="btnTools" class="icon-btn icon-btn-primary" type="button" aria-label="Gestione dati">
+          <i class="fas fa-cog"></i>
+        </button>
+      </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="app.js"></script>
+      <div class="card-white">
+        <form id="paramConfigForm">
+          <input type="text" id="confName" placeholder="Nome Esame (es. Ferro)" required>
+          <input type="text" id="confUnit" placeholder="Unità (es. mg/dL)" required>
+
+          <div class="input-row" style="display:flex; gap:10px; margin-top:10px">
+            <input type="number" id="confMin" placeholder="Min" step="0.1">
+            <input type="number" id="confMax" placeholder="Max" step="0.1">
+          </div>
+
+          <div class="input-row" style="display:flex; gap:10px; margin-top:10px">
+            <input type="text" id="confCategory" placeholder="Categoria (es. Lipidi)" value="Altro">
+            <input type="number" id="confDecimals" placeholder="Decimali" min="0" max="4" step="1" value="1">
+          </div>
+
+          <select id="confDirection" class="ios-select" style="margin-top:10px">
+            <option value="range">Range</option>
+            <option value="lower_better">Più basso è meglio</option>
+            <option value="higher_better">Più alto è meglio</option>
+          </select>
+
+          <button type="submit" class="button primary-button" style="margin-top:15px">Aggiungi al Dizionario</button>
+        </form>
+      </div>
+
+      <div id="dictionaryList" style="margin-top:20px"></div>
+    </div>
+
+  </main>
+
+  <div id="toolsModal" class="modal">
+    <div class="modal-content">
+      <span class="close-tools" style="float:right; cursor:pointer; font-size:24px; color:var(--gray)">&times;</span>
+      <h3 style="margin-top:0">Gestione Dati</h3>
+      <p style="font-size: 13px; color: var(--gray); margin-bottom: 20px;">Esporta i tuoi dati per sicurezza o importali da un backup precedente.</p>
+
+      <button onclick="exportJSON()" class="button secondary-button" style="text-align: left;">
+        <i class="fas fa-file-download" style="margin-right: 10px;"></i> Backup Completo (JSON)
+      </button>
+
+      <button onclick="document.getElementById('importFile').click()" class="button secondary-button" style="text-align: left;">
+        <i class="fas fa-file-upload" style="margin-right: 10px;"></i> Ripristina Backup
+      </button>
+
+      <button onclick="exportCSV()" class="button secondary-button" style="text-align: left;">
+        <i class="fas fa-file-csv" style="margin-right: 10px;"></i> Esporta per Excel (CSV)
+      </button>
+
+      <input type="file" id="importFile" style="display:none" onchange="importJSON(event)" accept=".json">
+    </div>
+  </div>
+
+  <div id="editDictModal" class="modal">
+    <div class="modal-content">
+      <span class="close-edit-dict" style="float:right; cursor:pointer; font-size:24px; color:var(--gray)">&times;</span>
+      <h3 style="margin-top:0">Modifica Parametro</h3>
+      <form id="editDictForm">
+        <input type="hidden" id="editDictIndex">
+
+        <div class="input-group">
+          <label class="label-small">NOME ESAME</label>
+          <input type="text" id="editDictName" required>
+        </div>
+
+        <div class="input-group" style="margin-top:10px">
+          <label class="label-small">UNITÀ DI MISURA</label>
+          <input type="text" id="editDictUnit" required>
+        </div>
+
+        <div class="input-row" style="display:flex; gap:10px; margin-top:10px">
+          <div style="flex:1">
+            <label class="label-small">MIN</label>
+            <input type="number" id="editDictMin" step="0.1">
+          </div>
+          <div style="flex:1">
+            <label class="label-small">MAX</label>
+            <input type="number" id="editDictMax" step="0.1">
+          </div>
+        </div>
+
+        <div class="input-row" style="display:flex; gap:10px; margin-top:10px">
+          <div style="flex:1">
+            <label class="label-small">CATEGORIA</label>
+            <input type="text" id="editDictCategory" placeholder="Altro">
+          </div>
+          <div style="flex:1">
+            <label class="label-small">DECIMALI</label>
+            <input type="number" id="editDictDecimals" min="0" max="4" step="1">
+          </div>
+        </div>
+
+        <div class="input-group" style="margin-top:10px">
+          <label class="label-small">DIREZIONE</label>
+          <select id="editDictDirection" class="ios-select">
+            <option value="range">Range</option>
+            <option value="lower_better">Più basso è meglio</option>
+            <option value="higher_better">Più alto è meglio</option>
+          </select>
+        </div>
+
+        <button type="submit" class="button primary-button" style="margin-top:20px">Salva Modifiche</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="examModal" class="modal">
+    <div class="modal-content">
+      <span class="close-button">&times;</span>
+      <h3 style="margin-top:0">Nuovo Referto</h3>
+      <form id="reportForm">
+        <div class="input-stack">
+          <div class="input-group">
+            <label class="label-small">DATA PRELIEVO</label>
+            <input type="date" id="reportDate" required>
+          </div>
+          <div class="input-group" style="margin-top:10px">
+            <label class="label-small">LUOGO / LABORATORIO</label>
+            <input type="text" id="reportLocation" placeholder="Es: Ospedale Maggiore" required>
+          </div>
+          <div class="input-group" style="margin-top:10px">
+            <label class="label-small">NOTE</label>
+            <textarea id="reportNotes" rows="3" placeholder="Digiuno, terapia, sintomi…"></textarea>
+          </div>
+        </div>
+
+        <div id="tempExamsList" class="temp-list-container" style="margin: 15px 0; min-height: 40px;"></div>
+
+        <div class="add-row-box" style="background: var(--ios-bg); padding: 15px; border-radius: 12px;">
+          <label class="label-small">AGGIUNGI PARAMETRO</label>
+          <select id="examParamSelect" class="ios-select"></select>
+          <input type="number" id="examValue" step="0.1" placeholder="Valore" style="margin-top:8px">
+          <button type="button" id="btnAddRow" class="button secondary-button" style="margin-top: 10px; background: white;">+ Inserisci Riga</button>
+        </div>
+
+        <button type="submit" class="button primary-button" style="margin-top:20px">Salva Report Finale</button>
+      </form>
+    </div>
+  </div>
+
+  <nav class="tab-bar">
+    <a href="#" class="tab-item active" data-view="dashboard">
+      <i class="fas fa-th-large"></i><span>Home</span>
+    </a>
+    <a href="#" class="tab-item" data-view="trends">
+      <i class="fas fa-chart-line"></i><span>Trend</span>
+    </a>
+    <a href="#" class="tab-item" data-view="history">
+      <i class="fas fa-history"></i><span>Storico</span>
+    </a>
+    <a href="#" class="tab-item" data-view="settings">
+      <i class="fas fa-cog"></i><span>Config</span>
+    </a>
+  </nav>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
