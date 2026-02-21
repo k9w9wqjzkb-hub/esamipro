@@ -11,21 +11,34 @@
 <body>
     <header class="navbar">
         <h1>I Miei Esami</h1>
-        <div id="mainAddBtn" class="navbar-right">
-            <i class="fas fa-plus-circle"></i>
-        </div>
-    </header>
+</header>
 
     <main class="main-content">
         <div id="view-dashboard" class="app-view">
             <h2 class="section-title">Parametri Chiave</h2>
+            <div id="overallStatus" class="card-white pill pill-ok" style="margin-bottom:12px"></div>
             <div id="keyMetricsGrid" class="key-metrics-grid"></div>
+
+            <div id="outOfRangeSection" style="display:none; margin-top:18px">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin: 0 4px 10px;">
+                    <h2 class="section-title" style="margin:0">Anomalie</h2>
+                    <button id="btnShareAnomalies" class="chip-btn"><i class="fab fa-whatsapp"></i> Condividi</button>
+                </div>
+                <div id="outOfRangeList"></div>
+            </div>
         </div>
 
         <div id="view-trends" class="app-view" style="display:none">
             <h2 class="section-title">Analisi Trend</h2>
             <div class="card-white" style="margin-bottom: 15px;">
-                <select id="trendParamSelector" class="ios-select"></select>
+                <div style="display:flex; gap:10px; align-items:center">
+                    <select id="trendParamSelector" class="ios-select" style="flex:1"></select>
+                    <select id="trendMode" class="ios-select" style="width:160px">
+                        <option value="values">Valori</option>
+                        <option value="delta">Δ vs prec.</option>
+                        <option value="ma3">Media mobile 3</option>
+                    </select>
+                </div>
             </div>
             <div style="height: 320px; background:white; padding:15px; border-radius:18px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
                 <canvas id="mainTrendChart"></canvas>
@@ -33,7 +46,7 @@
         </div>
 
         <div id="view-history" class="app-view" style="display:none">
-            <h2 class="section-title">Storico Referti</h2>
+            <div class="section-head"><h2 class="section-title" style="margin:0">Storico Referti</h2><button id="historyAddBtn" class="history-add-btn" aria-label="Aggiungi referto"><i class="fas fa-plus"></i></button></div>
             <div id="historyList"></div>
         </div>
 
@@ -48,8 +61,17 @@
                     <input type="text" id="confName" placeholder="Nome Esame (es. Ferro)" required>
                     <input type="text" id="confUnit" placeholder="Unità (es. mg/dL)" required>
                     <div class="input-row" style="display:flex; gap:10px; margin-top:10px">
-                        <input type="number" id="confMin" placeholder="Min" step="any" inputmode="decimal">
-                        <input type="number" id="confMax" placeholder="Max" step="any" inputmode="decimal">
+                        <input type="text" id="confCategory" placeholder="Categoria (es. Emocromo)" value="Altro">
+                        <input type="number" id="confDecimals" placeholder="Decimali" value="1" min="0" max="4">
+                    </div>
+                    <select id="confDirection" class="ios-select" style="margin-top:10px">
+                        <option value="range">Range</option>
+                        <option value="lower_better">Più basso è meglio</option>
+                        <option value="higher_better">Più alto è meglio</option>
+                    </select>
+                    <div class="input-row" style="display:flex; gap:10px; margin-top:10px">
+                        <input type="number" id="confMin" placeholder="Min" step="0.1">
+                        <input type="number" id="confMax" placeholder="Max" step="0.1">
                     </div>
                     <button type="submit" class="button primary-button" style="margin-top:15px">Aggiungi al Dizionario</button>
                 </form>
@@ -96,12 +118,30 @@
                 </div>
                 <div class="input-row" style="display:flex; gap:10px; margin-top:10px">
                     <div style="flex:1">
+                        <label class="label-small">CATEGORIA</label>
+                        <input type="text" id="editDictCategory" placeholder="Altro">
+                    </div>
+                    <div style="flex:1">
+                        <label class="label-small">DECIMALI</label>
+                        <input type="number" id="editDictDecimals" min="0" max="4" step="1">
+                    </div>
+                </div>
+                <div class="input-group" style="margin-top:10px">
+                    <label class="label-small">DIREZIONE</label>
+                    <select id="editDictDirection" class="ios-select">
+                        <option value="range">Range</option>
+                        <option value="lower_better">Più basso è meglio</option>
+                        <option value="higher_better">Più alto è meglio</option>
+                    </select>
+                </div>
+                <div class="input-row" style="display:flex; gap:10px; margin-top:10px">
+                    <div style="flex:1">
                         <label class="label-small">MIN</label>
-                        <input type="number" id="editDictMin" step="any" inputmode="decimal">
+                        <input type="number" id="editDictMin" step="0.1">
                     </div>
                     <div style="flex:1">
                         <label class="label-small">MAX</label>
-                        <input type="number" id="editDictMax" step="any" inputmode="decimal">
+                        <input type="number" id="editDictMax" step="0.1">
                     </div>
                 </div>
                 <button type="submit" class="button primary-button" style="margin-top:20px">Salva Modifiche</button>
@@ -123,6 +163,10 @@
                         <label class="label-small">LUOGO / LABORATORIO</label>
                         <input type="text" id="reportLocation" placeholder="Es: Ospedale Maggiore" required>
                     </div>
+                    <div class="input-group" style="margin-top:10px">
+                        <label class="label-small">NOTE (digiuno, terapia, sintomi…)</label>
+                        <textarea id="reportNotes" rows="3" placeholder="Facoltativo" style="width:100%; padding:14px; border: 1px solid #D1D1D6; border-radius:12px; font-size:14px; box-sizing:border-box"></textarea>
+                    </div>
                 </div>
                 
                 <div id="tempExamsList" class="temp-list-container" style="margin: 15px 0; min-height: 40px;">
@@ -131,7 +175,7 @@
                 <div class="add-row-box" style="background: var(--ios-bg); padding: 15px; border-radius: 12px;">
                     <label class="label-small">AGGIUNGI PARAMETRO</label>
                     <select id="examParamSelect" class="ios-select"></select>
-                    <input type="number" id="examValue" step="any" placeholder="Valore" style="margin-top:8px" inputmode="decimal">
+                    <input type="number" id="examValue" step="0.1" placeholder="Valore" style="margin-top:8px">
                     <button type="button" id="btnAddRow" class="button secondary-button" style="margin-top: 10px; background: white;">+ Inserisci Riga</button>
                 </div>
                 
