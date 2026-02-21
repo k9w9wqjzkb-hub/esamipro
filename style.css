@@ -104,29 +104,56 @@ input, select {
 .tab-item.active { color: var(--ios-blue); }
 .tab-item i { font-size: 22px; margin-bottom: 4px; }
 
-/* --- HEADER RIGA (Storico + pulsante "+") --- */
-.section-head{
-  display:flex;
+/* ---- STATUS DOTS (pallini) ---- */
+.status-dot{
+  display:inline-block;
+  width:8px;
+  height:8px;
+  border-radius:999px;
+  margin-right:6px;
+  vertical-align:middle;
+}
+.dot-ok{ background: var(--success); }
+.dot-warn{ background: #FF9500; } /* iOS orange */
+.dot-bad{ background: var(--danger); }
+.dot-muted{ background: #C7C7CC; }
+
+/* ---- BADGES (storico + inserimento) ---- */
+.badge{
+  display:inline-flex;
   align-items:center;
+  padding:3px 8px;
+  border-radius:999px;
+  font-size:10px;
+  font-weight:900;
+  letter-spacing:.2px;
+  border:1px solid transparent;
+}
+.badge-ok{ background: rgba(52,199,89,0.12); color: var(--success); border-color: rgba(52,199,89,0.25); }
+.badge-warn{ background: rgba(255,149,0,0.14); color: #FF9500; border-color: rgba(255,149,0,0.25); }
+.badge-danger{ background: rgba(255,59,48,0.12); color: var(--danger); border-color: rgba(255,59,48,0.25); }
+
+/* ---- PILL (stato generale) ---- */
+.pill{ border-radius:16px; }
+.pill-ok{ border-left:6px solid var(--success); }
+.pill-warn{ border-left:6px solid #FF9500; }
+.pill-bad{ border-left:6px solid var(--danger); }
+
+/* ---- Dashboard subrow ---- */
+.metric-subrow{
+  display:flex;
   justify-content:space-between;
-  gap:12px;
-  margin: 20px 4px 12px;
+  gap:10px;
+  margin-top:6px;
 }
-.history-add-btn{
-  border:0;
-  width:48px;
-  height:48px;
-  border-radius: 16px;
-  background: var(--ios-blue);
-  color:#fff;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size: 18px;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.10);
-  cursor:pointer;
-}
-.history-add-btn:active{
-  transform: scale(0.96);
-  opacity: 0.92;
+.metric-state{ color: var(--gray); font-weight:900; font-size:9px; }
+.metric-delta{ color: var(--gray); font-weight:900; font-size:9px; white-space:nowrap; }
+
+/* ---- Note box ---- */
+.note-box{
+  background:#fff;
+  border:1px solid #E5E5EA;
+  border-radius:12px;
+  padding:10px 12px;
+  margin-bottom:12px;
 }
