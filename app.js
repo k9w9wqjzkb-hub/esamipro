@@ -82,6 +82,48 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   }
 
+
+function parseNum(v) {
+  if (v === null || v === undefined) return null;
+  const s = String(v).trim();
+  if (!s) return null;
+  // Accetta virgola o punto come separatore decimale
+  const cleaned = s.replace(',', '.');
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : null;
+}
+
+function normName(v) {
+  return String(v || '')
+    .toUpperCase()
+    .replace(/[._]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getParamConfig(name) {
+  const key = normName(name);
+  return dict.find(p => normName(p.name) === key) || null;
+}
+
+function stepFromDecimals(dec) {
+  const d = Number(dec);
+  if (!Number.isFinite(d) || d <= 0) return 'any';
+  return String(Math.pow(10, -Math.min(6, d)));
+}
+
+function formatRange(p) {
+  if (!p) return 'Range: ---';
+  const dec = Number.isFinite(Number(p.decimals)) ? Number(p.decimals) : 1;
+  const min = parseNum(p.min);
+  const max = parseNum(p.max);
+  const unit = p.unit ? ` ${escapeHTML(p.unit)}` : '';
+  if (min === null && max === null) return `Range: ---${unit}`;
+  if (min !== null && max !== null) return `Range: ${fmt(min, dec)}-${fmt(max, dec)}${unit}`;
+  if (min !== null) return `Range: ≥ ${fmt(min, dec)}${unit}`;
+  return `Range: ≤ ${fmt(max, dec)}${unit}`;
+}
+
   function parseNum(v) {
     if (v === null || v === undefined) return null;
     const s = String(v).trim();
@@ -141,8 +183,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function formatRange(p) {
     if (!p) return 'Range: ---';
     const d = clamp(Number(p.decimals ?? 1), 0, 4);
-    const min = (p.min === '' || p.min === undefined) ? null : toNum(p.min);
-    const max = (p.max === '' || p.max === undefined) ? null : toNum(p.max);
+    const min = parseNum(p.min);
+    const max = parseNum(p.max);
 
     if (min === null && max === null) return 'Range: ---';
     if (min !== null && max !== null) return `Range: ${fmt(min, d)}-${fmt(max, d)} ${p.unit || ''}`.trim();
@@ -152,8 +194,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
   function statusForValue(p, v) {
-    const min = (p.min === '' || p.min === undefined) ? null : toNum(p.min);
-    const max = (p.max === '' || p.max === undefined) ? null : toNum(p.max);
+    const min = parseNum(p.min);
+    const max = parseNum(p.max);
     if (v === null) return { state: 'NO_DATA', out: false };
     const low = (min !== null) && v < min;
     const high = (max !== null) && v > max;
@@ -164,8 +206,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Severità in base a “quanto” sei fuori range (percentuale rispetto al limite più vicino)
   function severityForValue(p, v) {
-    const min = (p.min === '' || p.min === undefined) ? null : toNum(p.min);
-    const max = (p.max === '' || p.max === undefined) ? null : toNum(p.max);
+    const min = parseNum(p.min);
+    const max = parseNum(p.max);
     if (v === null) return { label: '—', level: 'none', ratio: 0 };
 
     if (min !== null && v < min && min !== 0) {
@@ -314,7 +356,8 @@ document.addEventListener('DOMContentLoaded', () => {
               </div>
             </div>`;
 
-          shareText += `• ${p.name}: ${fmt(last, p.decimals)} ${p.unit || ''} ${arrow} (Range: ${p.min}-${p.max}, Severità: ${sev.label})${dTxt}\n`;
+          shareText += `• ${p.name}: ${fmt(last, p.decimals)} ${p.unit || ''} ${arrow} (${formatRange(p).replace('Range: ', 'Range: ')}, Severità: ${sev.label})${dTxt}
+`;
         });
 
       alertSection.style.display = anomalies.length > 0 ? 'block' : 'none';
@@ -361,7 +404,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const redraw = () => {
       const pName = sel.value;
-      const pConfig = dict.find(d => d.name === pName);
+      const pConfig = getParamConfig(pName);
       const pts = [];
       reports.forEach(r => {
         const f = r.exams?.find(e => normName(e.param) === normName(pName));
@@ -596,7 +639,15 @@ document.addEventListener('DOMContentLoaded', () => {
   function syncParamSelect() {
     if (!examParamSelect) return;
     examParamSelect.innerHTML = dict.map(p => `<option value="${escapeAttr(p.name)}">${escapeHTML(p.name)}</option>`).join('');
+    syncExamStep();
   }
+
+  function syncExamStep() {
+    const p = getParamConfig(examParamSelect?.value);
+    const d = p?.decimals ?? 1;
+    if (examValue) examValue.step = stepFromDecimals(d);
+  }
+  if (examParamSelect) examParamSelect.addEventListener('change', syncExamStep);
 
   function syncExamValueStep() {
     if (!examValue || !examParamSelect) return;
@@ -615,7 +666,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     tempExamsList.innerHTML = tempExams.map((e, idx) => {
-      const p = dict.find(d => d.name === e.param);
+      const p = getParamConfig(e.param);
       const unit = p?.unit || '';
       return `
         <div class="temp-row">
@@ -706,6 +757,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const confCategory = document.getElementById('confCategory');
   const confDecimals = document.getElementById('confDecimals');
   const confDirection = document.getElementById('confDirection');
+
+  function syncConfigSteps() {
+    const d = confDecimals?.value === '' || confDecimals?.value === null || confDecimals?.value === undefined ? 1 : Number(confDecimals.value);
+    const step = stepFromDecimals(d);
+    if (confMin) confMin.step = step;
+    if (confMax) confMax.step = step;
+  }
+  if (confDecimals) confDecimals.addEventListener('change', syncConfigSteps);
+  syncConfigSteps();
 
 
   // Step dinamico per supportare decimali (es. 0,026) e evitare arrotondamenti su iOS
@@ -806,6 +866,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const editDictDecimals = document.getElementById('editDictDecimals');
   const editDictDirection = document.getElementById('editDictDirection');
 
+  function syncEditSteps() {
+    const d = editDictDecimals?.value === '' || editDictDecimals?.value === null || editDictDecimals?.value === undefined ? 1 : Number(editDictDecimals.value);
+    const step = stepFromDecimals(d);
+    if (editDictMin) editDictMin.step = step;
+    if (editDictMax) editDictMax.step = step;
+  }
+  if (editDictDecimals) editDictDecimals.addEventListener('change', syncEditSteps);
+
 
   function syncEditSteps() {
     const d = editDictDecimals?.value ?? 1;
@@ -837,6 +905,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (editDictCategory) editDictCategory.value = p.category || 'Altro';
     if (editDictDecimals) editDictDecimals.value = String(p.decimals ?? 1);
     if (editDictDirection) editDictDirection.value = p.direction || 'range';
+    syncEditSteps();
     openEditDictModal();
   };
 
