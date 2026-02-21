@@ -39,6 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let tChart = null;
 
   const mainAddBtn = document.getElementById('mainAddBtn');
+  const historyAddBtn = document.getElementById('historyAddBtn');
 
   // -------------------- PWA --------------------
   try {
@@ -639,6 +640,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (reportForm) reportForm.reset();
     openExamModal();
   };
+
+  // “+” nello Storico (in alto)
+  if (historyAddBtn) historyAddBtn.onclick = () => {
+    editingReportId = null;
+    tempExams = [];
+    if (reportForm) reportForm.reset();
+    openExamModal();
+  };
   if (closeBtn) closeBtn.onclick = closeExamModal;
 
   window.onclick = (e) => {
@@ -977,7 +986,7 @@ document.addEventListener('DOMContentLoaded', () => {
       .replace(/'/g, '&#039;');
   }
   function escapeAttr(str) {
-    return escapeHTML(str);
+    return escapeHTML(str).replace(/\s+/g, '_');
   }
 
   // -------------------- INIT --------------------
