@@ -82,17 +82,25 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   }
 
-  function toNum(v) {
-    const s = String(v ?? '').trim();
+  function parseNum(v) {
+    if (v === null || v === undefined) return null;
+    const s = String(v).trim();
     if (!s) return null;
-    const n = Number(s.replace(',', '.'));
+    // supporta virgola come separatore decimale
+    const cleaned = s.replace(/,/g, '.');
+    const n = Number(cleaned);
     return Number.isFinite(n) ? n : null;
   }
 
-  function normName(s) {
-    return String(s || '')
+  function toNum(v) {
+    return parseNum(v);
+  }
+
+  function normName(str) {
+    return String(str ?? '')
       .toUpperCase()
-      .replace(/[._]+/g, ' ')
+      .replace(/[_]+/g, ' ')
+      .replace(/[.]/g, '')
       .replace(/\s+/g, ' ')
       .trim();
   }
@@ -102,6 +110,11 @@ document.addEventListener('DOMContentLoaded', () => {
     return dict.find(p => normName(p.name) === key) || null;
   }
 
+  function stepFromDecimals(dec) {
+    const d = Number(dec);
+    if (!Number.isFinite(d) || d <= 0) return 'any';
+    return String(Math.pow(10, -d));
+  }
 
   function clamp(n, a, b) {
     return Math.min(b, Math.max(a, n));
@@ -124,6 +137,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const d = clamp(Number(decimals ?? 1), 0, 4);
     return Number(val).toFixed(d).replace(/\.0+$/, '').replace(/(\.[0-9]*?)0+$/, '$1');
   }
+
+  function formatRange(p) {
+    if (!p) return 'Range: ---';
+    const d = clamp(Number(p.decimals ?? 1), 0, 4);
+    const min = (p.min === '' || p.min === undefined) ? null : toNum(p.min);
+    const max = (p.max === '' || p.max === undefined) ? null : toNum(p.max);
+
+    if (min === null && max === null) return 'Range: ---';
+    if (min !== null && max !== null) return `Range: ${fmt(min, d)}-${fmt(max, d)} ${p.unit || ''}`.trim();
+    if (min !== null) return `Range: ≥ ${fmt(min, d)} ${p.unit || ''}`.trim();
+    return `Range: ≤ ${fmt(max, d)} ${p.unit || ''}`.trim();
+  }
+
 
   function statusForValue(p, v) {
     const min = (p.min === '' || p.min === undefined) ? null : toNum(p.min);
@@ -279,7 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="card-white" style="display:flex; justify-content:space-between; align-items:center; border-left:5px solid var(--danger); margin-bottom:8px">
               <div>
                 <b>${escapeHTML(p.name)}</b><br>
-                <small style="color:var(--gray)">Range: ${p.min ?? '—'}-${p.max ?? '—'} ${escapeHTML(p.unit || '')}</small><br>
+                <small style="color:var(--gray)">${formatRange(p)}</small><br>
                 <small style="color:var(--gray); font-weight:800">Severità: ${sev.label}${dTxt}</small>
               </div>
               <div style="text-align:right; color:var(--danger)">
@@ -335,7 +361,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const redraw = () => {
       const pName = sel.value;
-      const pConfig = getParamConfig(pName);
+      const pConfig = dict.find(d => d.name === pName);
       const pts = [];
       reports.forEach(r => {
         const f = r.exams?.find(e => normName(e.param) === normName(pName));
@@ -480,7 +506,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div style="display:flex; align-items:center; justify-content:space-between; gap:10px">
               <div style="min-width:0">
                 <b style="font-size:12px">${escapeHTML(p.name)}</b>
-                <div style="font-size:11px; color:var(--gray)">Range: ${p.min ?? '—'}-${p.max ?? '—'} ${escapeHTML(p.unit || '')}</div>
+                <div style="font-size:11px; color:var(--gray)">${formatRange(p)}</div>
               </div>
               <div style="text-align:right; white-space:nowrap">
                 <div style="font-weight:900">${v !== null ? fmt(v, p.decimals) : '--'} <span style="font-size:11px; font-weight:600">${escapeHTML(p.unit || '')}</span></div>
@@ -547,10 +573,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const examValue = document.getElementById('examValue');
   const btnAddRow = document.getElementById('btnAddRow');
 
+
+  if (examParamSelect) examParamSelect.addEventListener('change', syncExamValueStep);
+
   function openExamModal() {
     if (!examModal) return;
     examModal.style.display = 'block';
     syncParamSelect();
+    syncExamValueStep();
     renderTempList();
   }
 
@@ -568,6 +598,16 @@ document.addEventListener('DOMContentLoaded', () => {
     examParamSelect.innerHTML = dict.map(p => `<option value="${escapeAttr(p.name)}">${escapeHTML(p.name)}</option>`).join('');
   }
 
+  function syncExamValueStep() {
+    if (!examValue || !examParamSelect) return;
+    const p = getParamConfig(examParamSelect.value);
+    const d = p?.decimals ?? 1;
+    examValue.step = stepFromDecimals(d);
+    // su iOS aiuta avere inputmode decimale
+    examValue.inputMode = 'decimal';
+  }
+
+
   function renderTempList() {
     if (!tempExamsList) return;
     if (!tempExams.length) {
@@ -575,7 +615,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     tempExamsList.innerHTML = tempExams.map((e, idx) => {
-      const p = getParamConfig(e.param);
+      const p = dict.find(d => d.name === e.param);
       const unit = p?.unit || '';
       return `
         <div class="temp-row">
@@ -667,6 +707,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const confDecimals = document.getElementById('confDecimals');
   const confDirection = document.getElementById('confDirection');
 
+
+  // Step dinamico per supportare decimali (es. 0,026) e evitare arrotondamenti su iOS
+  function syncConfigSteps() {
+    const d = confDecimals?.value ?? 1;
+    const step = stepFromDecimals(d);
+    if (confMin) confMin.step = step;
+    if (confMax) confMax.step = step;
+  }
+  if (confDecimals) {
+    confDecimals.addEventListener('change', syncConfigSteps);
+    confDecimals.addEventListener('input', syncConfigSteps);
+  }
+  // Imposta subito
+  syncConfigSteps();
+
   function renderDictList() {
     const host = document.getElementById('dictionaryList');
     if (!host) return;
@@ -683,7 +738,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="card-white" style="display:flex; justify-content:space-between; align-items:center; gap:10px">
           <div style="min-width:0">
             <b>${escapeHTML(p.name)}</b>
-            <div style="font-size:12px; color:var(--gray)">${escapeHTML(p.category || 'Altro')} • Range: ${p.min ?? '—'}-${p.max ?? '—'} ${escapeHTML(p.unit || '')}</div>
+            <div style="font-size:12px; color:var(--gray)">${escapeHTML(p.category || 'Altro')} • ${formatRange(p)}</div>
           </div>
           <div style="display:flex; gap:10px; flex-shrink:0">
             <button class="icon-btn" title="Modifica" onclick="openEditDict(${i})"><i class="fas fa-pen"></i></button>
@@ -750,6 +805,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const editDictCategory = document.getElementById('editDictCategory');
   const editDictDecimals = document.getElementById('editDictDecimals');
   const editDictDirection = document.getElementById('editDictDirection');
+
+
+  function syncEditSteps() {
+    const d = editDictDecimals?.value ?? 1;
+    const step = stepFromDecimals(d);
+    if (editDictMin) editDictMin.step = step;
+    if (editDictMax) editDictMax.step = step;
+  }
+  if (editDictDecimals) {
+    editDictDecimals.addEventListener('change', syncEditSteps);
+    editDictDecimals.addEventListener('input', syncEditSteps);
+  }
 
   function openEditDictModal() {
     if (editDictModal) editDictModal.style.display = 'block';
@@ -879,7 +946,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const rows = [['date', 'location', 'notes', 'param', 'value', 'unit', 'min', 'max']];
     sortReportsDesc(reports).forEach(r => {
       (r.exams || []).forEach(ex => {
-        const p = getParamConfig(ex.param) || {};
+        const p = dict.find(d => d.name === ex.param) || {};
         rows.push([
           r.date,
           (r.location || '').replace(/\n/g, ' '),
