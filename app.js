@@ -362,7 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const redraw = () => {
       const pName = sel.value;
-      const pConfig = getParamConfig(pName);
+      const pConfig = dict.find(d => d.name === pName);
       const pts = [];
       reports.forEach(r => {
         const f = r.exams?.find(e => normName(e.param) === normName(pName));
@@ -616,7 +616,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     tempExamsList.innerHTML = tempExams.map((e, idx) => {
-      const p = getParamConfig(e.param);
+      const p = dict.find(d => d.name === e.param);
       const unit = p?.unit || '';
       return `
         <div class="temp-row">
@@ -641,7 +641,7 @@ document.addEventListener('DOMContentLoaded', () => {
     openExamModal();
   };
 
-  // “+” nello Storico (in alto)
+  // "+" nello Storico (se presente in index.html)
   if (historyAddBtn) historyAddBtn.onclick = () => {
     editingReportId = null;
     tempExams = [];
@@ -777,7 +777,6 @@ document.addEventListener('DOMContentLoaded', () => {
       dict.push({ name, unit, min, max, color: pickColorByCategory(category), decimals, direction, category });
       saveDict();
       paramConfigForm.reset();
-      syncConfigSteps();
       renderDictList();
       renderDashboard();
     };
@@ -847,7 +846,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (editDictCategory) editDictCategory.value = p.category || 'Altro';
     if (editDictDecimals) editDictDecimals.value = String(p.decimals ?? 1);
     if (editDictDirection) editDictDirection.value = p.direction || 'range';
-    syncEditSteps();
     openEditDictModal();
   };
 
@@ -957,7 +955,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const rows = [['date', 'location', 'notes', 'param', 'value', 'unit', 'min', 'max']];
     sortReportsDesc(reports).forEach(r => {
       (r.exams || []).forEach(ex => {
-        const p = getParamConfig(ex.param) || {};
+        const p = dict.find(d => d.name === ex.param) || {};
         rows.push([
           r.date,
           (r.location || '').replace(/\n/g, ' '),
