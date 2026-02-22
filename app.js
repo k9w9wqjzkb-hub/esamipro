@@ -89,28 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const n = Number(s.replace(',', '.'));
     return Number.isFinite(n) ? n : null;
   }
-
-  // Normalizzazione nomi parametri: evita mismatch tra dizionario e referti
-  function normName(s) {
-    return String(s || '')
-      .toUpperCase()
-      .replace(/[._]+/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-
-  function getParamConfig(name) {
-    const key = normName(name);
-    return dict.find(p => normName(p.name) === key) || null;
-  }
-
-  function stepFromDecimals(decimals) {
-    const d = clamp(Number(decimals ?? 1), 0, 4);
-    if (d === 0) return '1';
-    return String(Math.pow(10, -d));
-  }
-
-  function clamp(n, a, b) {
+function clamp(n, a, b) {
     return Math.min(b, Math.max(a, n));
   }
 
@@ -132,23 +111,10 @@ document.addEventListener('DOMContentLoaded', () => {
     return Number(val).toFixed(d).replace(/\.0+$/, '').replace(/(\.[0-9]*?)0+$/, '$1');
   }
 
-  // Come fmt(), ma NON taglia gli zeri: utile per i range (es. 0.000 - 0.100)
   function fmtFixed(val, decimals = 1) {
     if (val === null || val === undefined || !Number.isFinite(val)) return '--';
     const d = clamp(Number(decimals ?? 1), 0, 4);
     return Number(val).toFixed(d);
-  }
-
-  function formatRange(p) {
-    if (!p) return 'Range: —';
-    const d = p.decimals ?? 1;
-    const min = (p.min === '' || p.min === undefined) ? null : toNum(p.min);
-    const max = (p.max === '' || p.max === undefined) ? null : toNum(p.max);
-    const unit = p.unit ? ` ${escapeHTML(p.unit)}` : '';
-    if (min === null && max === null) return `Range: —${unit}`;
-    if (min !== null && max !== null) return `Range: ${fmtFixed(min, d)} - ${fmtFixed(max, d)}${unit}`;
-    if (min !== null) return `Range: ≥ ${fmtFixed(min, d)}${unit}`;
-    return `Range: ≤ ${fmtFixed(max, d)}${unit}`;
   }
 
   function statusForValue(p, v) {
@@ -199,7 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function getAllValuesForParam(paramName) {
     const pts = [];
     for (const r of reports) {
-      const row = r.exams?.find(e => normName(e.param) === normName(paramName));
+      const row = r.exams?.find(e => e.param === paramName);
       const v = row ? toNum(row.val) : null;
       if (v !== null) pts.push({ date: r.date, val: v, reportId: r.id });
     }
@@ -305,7 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="card-white" style="display:flex; justify-content:space-between; align-items:center; border-left:5px solid var(--danger); margin-bottom:8px">
               <div>
                 <b>${escapeHTML(p.name)}</b><br>
-                <small style="color:var(--gray)">Range: ${p.min ?? '—'}-${p.max ?? '—'} ${escapeHTML(p.unit || '')}</small><br>
+                <small style="color:var(--gray)">Range: ${escapeHTML(rangeText(p))}</small><br>
                 <small style="color:var(--gray); font-weight:800">Severità: ${sev.label}${dTxt}</small>
               </div>
               <div style="text-align:right; color:var(--danger)">
@@ -361,10 +327,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const redraw = () => {
       const pName = sel.value;
-      const pConfig = getParamConfig(pName);
+      const pConfig = dict.find(d => d.name === pName);
       const pts = [];
       reports.forEach(r => {
-        const f = r.exams?.find(e => normName(e.param) === normName(pName));
+        const f = r.exams?.find(e => e.param === pName);
         if (f && toNum(f.val) !== null) pts.push({ x: r.date, y: toNum(f.val) });
       });
       pts.sort((a, b) => new Date(a.x) - new Date(b.x));
@@ -485,7 +451,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const notes = (r.notes || '').trim();
 
       const rows = (r.exams || []).map(ex => {
-        const p = getParamConfig(ex.param) || { name: ex.param, unit: '', min: null, max: null, decimals: 1 };
+        const p = dict.find(d => d.name === ex.param) || { name: ex.param, unit: '', min: null, max: null, decimals: 1 };
         const v = toNum(ex.val);
         const st = statusForValue(p, v);
         const sev = severityForValue(p, v);
@@ -500,17 +466,15 @@ document.addEventListener('DOMContentLoaded', () => {
           dTxt = `Δ ${d > 0 ? '+' : ''}${fmt(d, p.decimals)}${pct === null ? '' : ` (${fmt(pct, 1)}%)`}`;
         }
 
-        let badge = `<span class="badge badge-ok">OK</span>`;
-        if (st.out) {
-          const cls = (sev.level === 'severe' || sev.level === 'moderate') ? 'badge-danger' : 'badge-warn';
-          badge = `<span class="badge ${cls}">${st.state === 'HIGH' ? 'ALTO' : 'BASSO'} • ${sev.label}</span>`;
-        }
+        const badge = st.out
+          ? `<span class="badge ${sev.level === 'light' ? 'badge-warn' : 'badge-danger'}">${st.state === 'HIGH' ? 'ALTO' : 'BASSO'} • ${sev.label}</span>`
+          : `<span class="badge badge-ok">OK</span>`;
         return `
           <div class="hist-row">
             <div style="display:flex; align-items:center; justify-content:space-between; gap:10px">
               <div style="min-width:0">
                 <b style="font-size:12px">${escapeHTML(p.name)}</b>
-                <div style="font-size:11px; color:var(--gray)">${formatRange(p)}</div>
+                <div style="font-size:11px; color:var(--gray)">Range: ${escapeHTML(rangeText(p))}</div>
               </div>
               <div style="text-align:right; white-space:nowrap">
                 <div style="font-weight:900">${v !== null ? fmt(v, p.decimals) : '--'} <span style="font-size:11px; font-weight:600">${escapeHTML(p.unit || '')}</span></div>
@@ -605,7 +569,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     tempExamsList.innerHTML = tempExams.map((e, idx) => {
-      const p = getParamConfig(e.param);
+      const p = dict.find(d => d.name === e.param);
       const unit = p?.unit || '';
       return `
         <div class="temp-row">
@@ -713,7 +677,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="card-white" style="display:flex; justify-content:space-between; align-items:center; gap:10px">
           <div style="min-width:0">
             <b>${escapeHTML(p.name)}</b>
-            <div style="font-size:12px; color:var(--gray)">${escapeHTML(p.category || 'Altro')} • Range: ${p.min ?? '—'}-${p.max ?? '—'} ${escapeHTML(p.unit || '')}</div>
+            <div style="font-size:12px; color:var(--gray)">${escapeHTML(p.category || 'Altro')} • Range: ${escapeHTML(rangeText(p))}</div>
           </div>
           <div style="display:flex; gap:10px; flex-shrink:0">
             <button class="icon-btn" title="Modifica" onclick="openEditDict(${i})"><i class="fas fa-pen"></i></button>
@@ -880,45 +844,83 @@ document.addEventListener('DOMContentLoaded', () => {
   window.importJSON = (ev) => {
     const file = ev?.target?.files?.[0];
     if (!file) return;
+
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        // rimuove BOM e spazi iniziali (alcuni file su iOS arrivano così)
+        // iOS/Safari: alcuni file JSON possono avere BOM (\uFEFF) all'inizio
         const raw = String(reader.result || '').replace(/^\uFEFF/, '').trim();
         const payload = JSON.parse(raw);
 
-        // Accetta più formati:
-        // 1) {dict, reports}
-        // 2) {param_dict, blood_reports_v2}
-        // 3) {data:{dict,reports}} (alcuni export)
-        const pDict = payload?.dict ?? payload?.param_dict ?? payload?.data?.dict ?? null;
-        const pReports = payload?.reports ?? payload?.blood_reports_v2 ?? payload?.data?.reports ?? null;
+        // Supporta più formati (versioni diverse)
+        let newDict = null;
+        let newReports = null;
 
-        if (Array.isArray(pDict) && Array.isArray(pReports)) {
-          dict = pDict.map(p => ({ decimals: 1, direction: 'range', category: 'Altro', ...p }));
-          reports = pReports.map(r => ({ ...r, id: r.id || uid() }));
+        if (Array.isArray(payload)) {
+          // Solo report
+          newReports = payload;
+        } else if (payload && typeof payload === 'object') {
+          if (Array.isArray(payload.dict)) newDict = payload.dict;
+          if (Array.isArray(payload.reports)) newReports = payload.reports;
 
-          // normalizza numeri e struttura exams
-          reports = reports.map(r => ({
+          // Formato storage
+          if (!newDict && Array.isArray(payload.param_dict)) newDict = payload.param_dict;
+          if (!newReports && Array.isArray(payload.blood_reports_v2)) newReports = payload.blood_reports_v2;
+
+          // Formato annidato
+          if ((!newDict || !newReports) && payload.data && typeof payload.data === 'object') {
+            if (!newDict && Array.isArray(payload.data.dict)) newDict = payload.data.dict;
+            if (!newReports && Array.isArray(payload.data.reports)) newReports = payload.data.reports;
+            if (!newDict && Array.isArray(payload.data.param_dict)) newDict = payload.data.param_dict;
+            if (!newReports && Array.isArray(payload.data.blood_reports_v2)) newReports = payload.data.blood_reports_v2;
+          }
+        }
+
+        // Se manca una delle due parti, non importiamo "a metà" senza avvisare
+        if (!Array.isArray(newDict) && !Array.isArray(newReports)) {
+          alert('File non valido: non trovo né dizionario né referti.');
+          return;
+        }
+
+        // Normalizzazione minima (senza cambiare i tuoi dati clinici)
+        if (Array.isArray(newDict)) {
+          dict = newDict.map(p => ({
+            decimals: 1,
+            direction: 'range',
+            category: 'Altro',
+            ...p,
+          }));
+        }
+
+        if (Array.isArray(newReports)) {
+          reports = newReports.map(r => ({
             id: r.id || uid(),
-            date: r.date,
+            date: r.date || '',
             location: r.location || '',
             notes: r.notes || '',
-            exams: (r.exams || []).map(ex => ({
-              param: ex.param,
-              val: toNum(ex.val),
-            })).filter(ex => ex.param && ex.val !== null)
+            exams: Array.isArray(r.exams) ? r.exams.map(ex => ({
+              param: ex.param ?? '',
+              val: toNum(ex.val) ?? toNum(ex.value) ?? toNum(ex.v) ?? ex.val, // supporta chiavi diverse
+            })) : [],
+            ...r,
           }));
-
-          saveDict();
-          saveReports();
-          renderDashboard();
-          renderHistory();
-          renderDictList();
-          alert('Backup importato ✅');
-        } else {
-          alert('File non valido.');
         }
+
+        saveDict();
+        saveReports();
+
+        // Forza un refresh UI e torna in Home (così vedi subito i dati)
+        renderDashboard();
+        renderHistory();
+        renderDictList();
+        try { closeTools(); } catch (_) {}
+        try { showView('dashboard'); } catch (_) {}
+
+        // Verifica scrittura su localStorage
+        const chkDict = safeJSON(localStorage.getItem(LS_DICT), []);
+        const chkReports = safeJSON(localStorage.getItem(LS_REPORTS), []);
+        alert(`Backup importato ✅\nParametri: ${Array.isArray(chkDict) ? chkDict.length : 0}\nReferti: ${Array.isArray(chkReports) ? chkReports.length : 0}`);
+
       } catch (err) {
         console.error('Import backup error:', err);
         alert('Errore durante l’importazione. (Controlla la console per dettagli)');
@@ -933,7 +935,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const rows = [['date', 'location', 'notes', 'param', 'value', 'unit', 'min', 'max']];
     sortReportsDesc(reports).forEach(r => {
       (r.exams || []).forEach(ex => {
-        const p = getParamConfig(ex.param) || {};
+        const p = dict.find(d => d.name === ex.param) || {};
         rows.push([
           r.date,
           (r.location || '').replace(/\n/g, ' '),
@@ -964,10 +966,15 @@ document.addEventListener('DOMContentLoaded', () => {
       .replace(/'/g, '&#039;');
   }
   function escapeAttr(str) {
-    // Non modificare il testo (niente underscore): serve solo a evitare problemi HTML
+    // Non alterare il testo (niente underscore): serve solo a renderlo sicuro in HTML
     return escapeHTML(str);
   }
 
   // -------------------- INIT --------------------
   showView('dashboard');
-});
+});  function rangeText(p) {
+    const s = formatRange(p);
+    return s.startsWith('Range: ') ? s.slice(7) : s;
+  }
+
+
