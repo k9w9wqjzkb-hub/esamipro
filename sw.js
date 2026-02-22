@@ -1,5 +1,5 @@
 // Service Worker – cache con versionamento + aggiornamenti puliti
-const CACHE_NAME = 'iMieiEsami-v4';
+const CACHE_NAME = 'iMieiEsami-v3';
 
 const ASSETS = [
   './',

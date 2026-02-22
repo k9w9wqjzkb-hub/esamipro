@@ -82,14 +82,41 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   }
 
-  function toNum(v) {
-    // Accetta sia punto che virgola (es. "0,007")
-    const s = String(v ?? '').trim();
+  function parseNum(v) {
+    if (v === null || v === undefined) return null;
+    const s = String(v).trim();
     if (!s) return null;
-    const n = Number(s.replace(',', '.'));
+    // supporta virgola come separatore decimale
+    const cleaned = s.replace(/,/g, '.');
+    const n = Number(cleaned);
     return Number.isFinite(n) ? n : null;
   }
-function clamp(n, a, b) {
+
+  function toNum(v) {
+    return parseNum(v);
+  }
+
+  function normName(str) {
+    return String(str ?? '')
+      .toUpperCase()
+      .replace(/[_]+/g, ' ')
+      .replace(/[.]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function getParamConfig(name) {
+    const key = normName(name);
+    return dict.find(p => normName(p.name) === key) || null;
+  }
+
+  function stepFromDecimals(dec) {
+    const d = Number(dec);
+    if (!Number.isFinite(d) || d <= 0) return 'any';
+    return String(Math.pow(10, -d));
+  }
+
+  function clamp(n, a, b) {
     return Math.min(b, Math.max(a, n));
   }
 
@@ -111,11 +138,18 @@ function clamp(n, a, b) {
     return Number(val).toFixed(d).replace(/\.0+$/, '').replace(/(\.[0-9]*?)0+$/, '$1');
   }
 
-  function fmtFixed(val, decimals = 1) {
-    if (val === null || val === undefined || !Number.isFinite(val)) return '--';
-    const d = clamp(Number(decimals ?? 1), 0, 4);
-    return Number(val).toFixed(d);
+  function formatRange(p) {
+    if (!p) return 'Range: ---';
+    const d = clamp(Number(p.decimals ?? 1), 0, 4);
+    const min = (p.min === '' || p.min === undefined) ? null : toNum(p.min);
+    const max = (p.max === '' || p.max === undefined) ? null : toNum(p.max);
+
+    if (min === null && max === null) return 'Range: ---';
+    if (min !== null && max !== null) return `Range: ${fmt(min, d)}-${fmt(max, d)} ${p.unit || ''}`.trim();
+    if (min !== null) return `Range: ≥ ${fmt(min, d)} ${p.unit || ''}`.trim();
+    return `Range: ≤ ${fmt(max, d)} ${p.unit || ''}`.trim();
   }
+
 
   function statusForValue(p, v) {
     const min = (p.min === '' || p.min === undefined) ? null : toNum(p.min);
@@ -165,7 +199,7 @@ function clamp(n, a, b) {
   function getAllValuesForParam(paramName) {
     const pts = [];
     for (const r of reports) {
-      const row = r.exams?.find(e => e.param === paramName);
+      const row = r.exams?.find(e => normName(e.param) === normName(paramName));
       const v = row ? toNum(row.val) : null;
       if (v !== null) pts.push({ date: r.date, val: v, reportId: r.id });
     }
@@ -271,7 +305,7 @@ function clamp(n, a, b) {
             <div class="card-white" style="display:flex; justify-content:space-between; align-items:center; border-left:5px solid var(--danger); margin-bottom:8px">
               <div>
                 <b>${escapeHTML(p.name)}</b><br>
-                <small style="color:var(--gray)">Range: ${escapeHTML(rangeText(p))}</small><br>
+                <small style="color:var(--gray)">${formatRange(p)}</small><br>
                 <small style="color:var(--gray); font-weight:800">Severità: ${sev.label}${dTxt}</small>
               </div>
               <div style="text-align:right; color:var(--danger)">
@@ -330,7 +364,7 @@ function clamp(n, a, b) {
       const pConfig = dict.find(d => d.name === pName);
       const pts = [];
       reports.forEach(r => {
-        const f = r.exams?.find(e => e.param === pName);
+        const f = r.exams?.find(e => normName(e.param) === normName(pName));
         if (f && toNum(f.val) !== null) pts.push({ x: r.date, y: toNum(f.val) });
       });
       pts.sort((a, b) => new Date(a.x) - new Date(b.x));
@@ -451,7 +485,7 @@ function clamp(n, a, b) {
       const notes = (r.notes || '').trim();
 
       const rows = (r.exams || []).map(ex => {
-        const p = dict.find(d => d.name === ex.param) || { name: ex.param, unit: '', min: null, max: null, decimals: 1 };
+        const p = getParamConfig(ex.param) || { name: ex.param, unit: '', min: null, max: null, decimals: 1 };
         const v = toNum(ex.val);
         const st = statusForValue(p, v);
         const sev = severityForValue(p, v);
@@ -466,15 +500,13 @@ function clamp(n, a, b) {
           dTxt = `Δ ${d > 0 ? '+' : ''}${fmt(d, p.decimals)}${pct === null ? '' : ` (${fmt(pct, 1)}%)`}`;
         }
 
-        const badge = st.out
-          ? `<span class="badge ${sev.level === 'light' ? 'badge-warn' : 'badge-danger'}">${st.state === 'HIGH' ? 'ALTO' : 'BASSO'} • ${sev.label}</span>`
-          : `<span class="badge badge-ok">OK</span>`;
+        const badge = st.out ? `<span class="badge badge-danger">${st.state === 'HIGH' ? 'ALTO' : 'BASSO'} • ${sev.label}</span>` : `<span class="badge badge-ok">OK</span>`;
         return `
           <div class="hist-row">
             <div style="display:flex; align-items:center; justify-content:space-between; gap:10px">
               <div style="min-width:0">
                 <b style="font-size:12px">${escapeHTML(p.name)}</b>
-                <div style="font-size:11px; color:var(--gray)">Range: ${escapeHTML(rangeText(p))}</div>
+                <div style="font-size:11px; color:var(--gray)">${formatRange(p)}</div>
               </div>
               <div style="text-align:right; white-space:nowrap">
                 <div style="font-weight:900">${v !== null ? fmt(v, p.decimals) : '--'} <span style="font-size:11px; font-weight:600">${escapeHTML(p.unit || '')}</span></div>
@@ -541,10 +573,14 @@ function clamp(n, a, b) {
   const examValue = document.getElementById('examValue');
   const btnAddRow = document.getElementById('btnAddRow');
 
+
+  if (examParamSelect) examParamSelect.addEventListener('change', syncExamValueStep);
+
   function openExamModal() {
     if (!examModal) return;
     examModal.style.display = 'block';
     syncParamSelect();
+    syncExamValueStep();
     renderTempList();
   }
 
@@ -561,6 +597,16 @@ function clamp(n, a, b) {
     if (!examParamSelect) return;
     examParamSelect.innerHTML = dict.map(p => `<option value="${escapeAttr(p.name)}">${escapeHTML(p.name)}</option>`).join('');
   }
+
+  function syncExamValueStep() {
+    if (!examValue || !examParamSelect) return;
+    const p = getParamConfig(examParamSelect.value);
+    const d = p?.decimals ?? 1;
+    examValue.step = stepFromDecimals(d);
+    // su iOS aiuta avere inputmode decimale
+    examValue.inputMode = 'decimal';
+  }
+
 
   function renderTempList() {
     if (!tempExamsList) return;
@@ -661,6 +707,21 @@ function clamp(n, a, b) {
   const confDecimals = document.getElementById('confDecimals');
   const confDirection = document.getElementById('confDirection');
 
+
+  // Step dinamico per supportare decimali (es. 0,026) e evitare arrotondamenti su iOS
+  function syncConfigSteps() {
+    const d = confDecimals?.value ?? 1;
+    const step = stepFromDecimals(d);
+    if (confMin) confMin.step = step;
+    if (confMax) confMax.step = step;
+  }
+  if (confDecimals) {
+    confDecimals.addEventListener('change', syncConfigSteps);
+    confDecimals.addEventListener('input', syncConfigSteps);
+  }
+  // Imposta subito
+  syncConfigSteps();
+
   function renderDictList() {
     const host = document.getElementById('dictionaryList');
     if (!host) return;
@@ -677,7 +738,7 @@ function clamp(n, a, b) {
         <div class="card-white" style="display:flex; justify-content:space-between; align-items:center; gap:10px">
           <div style="min-width:0">
             <b>${escapeHTML(p.name)}</b>
-            <div style="font-size:12px; color:var(--gray)">${escapeHTML(p.category || 'Altro')} • Range: ${escapeHTML(rangeText(p))}</div>
+            <div style="font-size:12px; color:var(--gray)">${escapeHTML(p.category || 'Altro')} • ${formatRange(p)}</div>
           </div>
           <div style="display:flex; gap:10px; flex-shrink:0">
             <button class="icon-btn" title="Modifica" onclick="openEditDict(${i})"><i class="fas fa-pen"></i></button>
@@ -744,6 +805,18 @@ function clamp(n, a, b) {
   const editDictCategory = document.getElementById('editDictCategory');
   const editDictDecimals = document.getElementById('editDictDecimals');
   const editDictDirection = document.getElementById('editDictDirection');
+
+
+  function syncEditSteps() {
+    const d = editDictDecimals?.value ?? 1;
+    const step = stepFromDecimals(d);
+    if (editDictMin) editDictMin.step = step;
+    if (editDictMax) editDictMax.step = step;
+  }
+  if (editDictDecimals) {
+    editDictDecimals.addEventListener('change', syncEditSteps);
+    editDictDecimals.addEventListener('input', syncEditSteps);
+  }
 
   function openEditDictModal() {
     if (editDictModal) editDictModal.style.display = 'block';
@@ -844,86 +917,24 @@ function clamp(n, a, b) {
   window.importJSON = (ev) => {
     const file = ev?.target?.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        // iOS/Safari: alcuni file JSON possono avere BOM (\uFEFF) all'inizio
-        const raw = String(reader.result || '').replace(/^\uFEFF/, '').trim();
-        const payload = JSON.parse(raw);
-
-        // Supporta più formati (versioni diverse)
-        let newDict = null;
-        let newReports = null;
-
-        if (Array.isArray(payload)) {
-          // Solo report
-          newReports = payload;
-        } else if (payload && typeof payload === 'object') {
-          if (Array.isArray(payload.dict)) newDict = payload.dict;
-          if (Array.isArray(payload.reports)) newReports = payload.reports;
-
-          // Formato storage
-          if (!newDict && Array.isArray(payload.param_dict)) newDict = payload.param_dict;
-          if (!newReports && Array.isArray(payload.blood_reports_v2)) newReports = payload.blood_reports_v2;
-
-          // Formato annidato
-          if ((!newDict || !newReports) && payload.data && typeof payload.data === 'object') {
-            if (!newDict && Array.isArray(payload.data.dict)) newDict = payload.data.dict;
-            if (!newReports && Array.isArray(payload.data.reports)) newReports = payload.data.reports;
-            if (!newDict && Array.isArray(payload.data.param_dict)) newDict = payload.data.param_dict;
-            if (!newReports && Array.isArray(payload.data.blood_reports_v2)) newReports = payload.data.blood_reports_v2;
-          }
+        const payload = JSON.parse(String(reader.result || ''));
+        if (payload?.dict && payload?.reports) {
+          dict = (payload.dict || []).map(p => ({ decimals: 1, direction: 'range', category: 'Altro', ...p }));
+          reports = (payload.reports || []).map(r => ({ ...r, id: r.id || uid() }));
+          saveDict();
+          saveReports();
+          renderDashboard();
+          renderHistory();
+          renderDictList();
+          alert('Backup importato ✅');
+        } else {
+          alert('File non valido.');
         }
-
-        // Se manca una delle due parti, non importiamo "a metà" senza avvisare
-        if (!Array.isArray(newDict) && !Array.isArray(newReports)) {
-          alert('File non valido: non trovo né dizionario né referti.');
-          return;
-        }
-
-        // Normalizzazione minima (senza cambiare i tuoi dati clinici)
-        if (Array.isArray(newDict)) {
-          dict = newDict.map(p => ({
-            decimals: 1,
-            direction: 'range',
-            category: 'Altro',
-            ...p,
-          }));
-        }
-
-        if (Array.isArray(newReports)) {
-          reports = newReports.map(r => ({
-            id: r.id || uid(),
-            date: r.date || '',
-            location: r.location || '',
-            notes: r.notes || '',
-            exams: Array.isArray(r.exams) ? r.exams.map(ex => ({
-              param: ex.param ?? '',
-              val: toNum(ex.val) ?? toNum(ex.value) ?? toNum(ex.v) ?? ex.val, // supporta chiavi diverse
-            })) : [],
-            ...r,
-          }));
-        }
-
-        saveDict();
-        saveReports();
-
-        // Forza un refresh UI e torna in Home (così vedi subito i dati)
-        renderDashboard();
-        renderHistory();
-        renderDictList();
-        try { closeTools(); } catch (_) {}
-        try { showView('dashboard'); } catch (_) {}
-
-        // Verifica scrittura su localStorage
-        const chkDict = safeJSON(localStorage.getItem(LS_DICT), []);
-        const chkReports = safeJSON(localStorage.getItem(LS_REPORTS), []);
-        alert(`Backup importato ✅\nParametri: ${Array.isArray(chkDict) ? chkDict.length : 0}\nReferti: ${Array.isArray(chkReports) ? chkReports.length : 0}`);
-
-      } catch (err) {
-        console.error('Import backup error:', err);
-        alert('Errore durante l’importazione. (Controlla la console per dettagli)');
+      } catch {
+        alert('Errore durante l’importazione.');
       } finally {
         if (importFile) importFile.value = '';
       }
@@ -966,15 +977,9 @@ function clamp(n, a, b) {
       .replace(/'/g, '&#039;');
   }
   function escapeAttr(str) {
-    // Non alterare il testo (niente underscore): serve solo a renderlo sicuro in HTML
     return escapeHTML(str);
   }
 
   // -------------------- INIT --------------------
   showView('dashboard');
-});  function rangeText(p) {
-    const s = formatRange(p);
-    return s.startsWith('Range: ') ? s.slice(7) : s;
-  }
-
-
+});
