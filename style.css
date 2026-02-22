@@ -204,3 +204,29 @@ textarea {
 .tab-item { text-decoration: none; color: var(--gray); display: flex; flex-direction: column; align-items: center; font-size: 10px; }
 .tab-item.active { color: var(--ios-blue); }
 .tab-item i { font-size: 22px; margin-bottom: 4px; }
+
+/* --- FIX V8: layout form + iOS inputs --- */
+
+/* Evita sovrapposizioni nel form Config (gli input senza .input-group) */
+#paramConfigForm > input {
+  display: block;
+  margin-top: 10px;
+}
+#paramConfigForm > input:first-child { margin-top: 0; }
+
+/* Assicura che i campi date non sforino su iOS */
+input[type="date"]{
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  -webkit-appearance: none;
+}
+
+/* File input nascosto ma cliccabile da button (iOS non ama display:none) */
+.file-input-hidden{
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
