@@ -39,6 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let tChart = null;
 
   const mainAddBtn = document.getElementById('mainAddBtn');
+  const historyAddBtn = document.getElementById('historyAddBtn');
 
   // -------------------- PWA --------------------
   try {
@@ -361,7 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const redraw = () => {
       const pName = sel.value;
-      const pConfig = dict.find(d => d.name === pName);
+      const pConfig = getParamConfig(pName);
       const pts = [];
       reports.forEach(r => {
         const f = r.exams?.find(e => normName(e.param) === normName(pName));
@@ -615,7 +616,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     tempExamsList.innerHTML = tempExams.map((e, idx) => {
-      const p = dict.find(d => d.name === e.param);
+      const p = getParamConfig(e.param);
       const unit = p?.unit || '';
       return `
         <div class="temp-row">
@@ -634,6 +635,14 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   if (mainAddBtn) mainAddBtn.onclick = () => {
+    editingReportId = null;
+    tempExams = [];
+    if (reportForm) reportForm.reset();
+    openExamModal();
+  };
+
+  // “+” nello Storico (in alto)
+  if (historyAddBtn) historyAddBtn.onclick = () => {
     editingReportId = null;
     tempExams = [];
     if (reportForm) reportForm.reset();
@@ -768,6 +777,7 @@ document.addEventListener('DOMContentLoaded', () => {
       dict.push({ name, unit, min, max, color: pickColorByCategory(category), decimals, direction, category });
       saveDict();
       paramConfigForm.reset();
+      syncConfigSteps();
       renderDictList();
       renderDashboard();
     };
@@ -837,6 +847,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (editDictCategory) editDictCategory.value = p.category || 'Altro';
     if (editDictDecimals) editDictDecimals.value = String(p.decimals ?? 1);
     if (editDictDirection) editDictDirection.value = p.direction || 'range';
+    syncEditSteps();
     openEditDictModal();
   };
 
@@ -946,7 +957,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const rows = [['date', 'location', 'notes', 'param', 'value', 'unit', 'min', 'max']];
     sortReportsDesc(reports).forEach(r => {
       (r.exams || []).forEach(ex => {
-        const p = dict.find(d => d.name === ex.param) || {};
+        const p = getParamConfig(ex.param) || {};
         rows.push([
           r.date,
           (r.location || '').replace(/\n/g, ' '),
