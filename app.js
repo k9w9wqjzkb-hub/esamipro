@@ -844,24 +844,121 @@ function clamp(n, a, b) {
   window.importJSON = (ev) => {
     const file = ev?.target?.files?.[0];
     if (!file) return;
+
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const payload = JSON.parse(String(reader.result || ''));
-        if (payload?.dict && payload?.reports) {
-          dict = (payload.dict || []).map(p => ({ decimals: 1, direction: 'range', category: 'Altro', ...p }));
-          reports = (payload.reports || []).map(r => ({ ...r, id: r.id || uid() }));
-          saveDict();
-          saveReports();
-          renderDashboard();
-          renderHistory();
-          renderDictList();
-          alert('Backup importato ✅');
-        } else {
-          alert('File non valido.');
+        const raw = String(reader.result || '');
+        const text = raw.replace(/^\uFEFF/, '').trim(); // rimuove BOM + spazi
+        if (!text) {
+          alert('File vuoto.');
+          return;
         }
-      } catch {
-        alert('Errore durante l’importazione.');
+
+        let payload;
+        try {
+          payload = JSON.parse(text);
+        } catch (err) {
+          console.error('Import JSON parse error:', err);
+          alert('Errore: il file non è un JSON valido.');
+          return;
+        }
+
+        // Supporta più formati storici:
+        // A) {dict: [...], reports: [...]} (formato attuale)
+        // B) {param_dict: [...], blood_reports_v2: [...]} (formato storage)
+        // C) [...reports] (array diretto)
+        let srcDict = null;
+        let srcReports = null;
+
+        if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+          if (Array.isArray(payload.dict) && Array.isArray(payload.reports)) {
+            srcDict = payload.dict;
+            srcReports = payload.reports;
+          } else if (Array.isArray(payload.param_dict) && Array.isArray(payload.blood_reports_v2)) {
+            srcDict = payload.param_dict;
+            srcReports = payload.blood_reports_v2;
+          } else if (Array.isArray(payload.reports) && Array.isArray(payload.param_dict)) {
+            // variante mista
+            srcDict = payload.param_dict;
+            srcReports = payload.reports;
+          } else if (Array.isArray(payload.reports_v2) && Array.isArray(payload.dict)) {
+            srcDict = payload.dict;
+            srcReports = payload.reports_v2;
+          }
+        } else if (Array.isArray(payload)) {
+          // array di report
+          srcReports = payload;
+          srcDict = null;
+        }
+
+        if (!srcReports || !Array.isArray(srcReports)) {
+          alert('File non valido: non trovo la lista dei referti.');
+          return;
+        }
+
+        // Se nel backup manca il dizionario, manteniamo quello corrente
+        const safeClamp = (n, a, b) => Math.min(b, Math.max(a, n));
+        const parseMaybeNum = (v) => {
+          if (v === null || v === undefined || v === '') return null;
+          const s = String(v).trim();
+          if (!s) return null;
+          const n = Number(s.replace(',', '.'));
+          return Number.isFinite(n) ? n : null;
+        };
+
+        if (srcDict && Array.isArray(srcDict)) {
+          dict = srcDict
+            .filter(p => p && (p.name || p.nome)) // tollera chiavi "nome"
+            .map(p => {
+              const name = String(p.name || p.nome || '').trim().toUpperCase();
+              const unit = String(p.unit || p.unita || '').trim();
+              const decimals = safeClamp(Number(p.decimals ?? 1), 0, 4);
+              return {
+                decimals: 1,
+                direction: 'range',
+                category: 'Altro',
+                ...p,
+                name,
+                unit,
+                min: parseMaybeNum(p.min),
+                max: parseMaybeNum(p.max),
+                decimals,
+              };
+            });
+          saveDict();
+        }
+
+        reports = srcReports
+          .filter(r => r && (r.date || r.data))
+          .map(r => {
+            const examsRaw = Array.isArray(r.exams) ? r.exams : (Array.isArray(r.esami) ? r.esami : []);
+            const exams = examsRaw
+              .filter(ex => ex && (ex.param || ex.nome))
+              .map(ex => ({
+                param: String(ex.param || ex.nome || '').trim().toUpperCase(),
+                val: parseMaybeNum(ex.val ?? ex.value ?? ex.valore),
+              }))
+              .filter(ex => ex.param && ex.val !== null);
+
+            return {
+              id: r.id || uid(),
+              date: String(r.date || r.data || '').slice(0, 10),
+              location: String(r.location || r.laboratorio || r.sede || '').trim(),
+              notes: String(r.notes || r.note || '').trim(),
+              exams
+            };
+          });
+
+        saveReports();
+        renderDashboard();
+        renderHistory();
+        renderDictList();
+
+        alert(`Backup importato ✅\nReferti: ${reports.length}${dict ? `\nParametri: ${dict.length}` : ''}`);
+      } catch (err) {
+        console.error('Import error:', err);
+        alert('Errore durante l’importazione. (Controlla la console per dettagli)');
       } finally {
         if (importFile) importFile.value = '';
       }
