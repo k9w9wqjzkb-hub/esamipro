@@ -11,13 +11,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const DEFAULT_DICT = [
     { name: 'COLESTEROLO', unit: 'mg/dL', min: 120, max: 200, color: 'bg-orange', decimals: 0, direction: 'lower_better', category: 'Lipidi' },
-    { name: 'COLESTEROLO_HDL', unit: 'mg/dL', min: 40, max: 60, color: 'bg-orange', decimals: 0, direction: 'higher_better', category: 'Lipidi' },
-    { name: 'COLESTEROLO_LDL', unit: 'mg/dL', min: 0, max: 130, color: 'bg-orange', decimals: 0, direction: 'lower_better', category: 'Lipidi' },
+    { name: 'COLESTEROLO HDL', unit: 'mg/dL', min: 40, max: 60, color: 'bg-orange', decimals: 0, direction: 'higher_better', category: 'Lipidi' },
+    { name: 'COLESTEROLO LDL', unit: 'mg/dL', min: 0, max: 130, color: 'bg-orange', decimals: 0, direction: 'lower_better', category: 'Lipidi' },
     { name: 'TRIGLICERIDI', unit: 'mg/dL', min: 50, max: 150, color: 'bg-orange', decimals: 0, direction: 'lower_better', category: 'Lipidi' },
     { name: 'GLUCOSIO', unit: 'mg/dL', min: 70, max: 100, color: 'bg-blue', decimals: 0, direction: 'lower_better', category: 'Metabolismo', notes: 'A digiuno quando possibile.' },
     { name: 'LEUCOCITI', unit: '10^3/µL', min: 4, max: 10, color: 'bg-blue', decimals: 1, direction: 'range', category: 'Emocromo' },
     { name: 'EMOGLOBINA', unit: 'g/dL', min: 13, max: 17, color: 'bg-blue', decimals: 1, direction: 'range', category: 'Emocromo' },
-    { name: 'VITAMINA_D', unit: 'ng/mL', min: 30, max: 100, color: 'bg-purple', decimals: 0, direction: 'higher_better', category: 'Vitamine' }
+    { name: 'VITAMINA D', unit: 'ng/mL', min: 30, max: 100, color: 'bg-purple', decimals: 0, direction: 'higher_better', category: 'Vitamine' }
   ];
 
   /** @type {Array<{id:string,date:string,location:string,notes?:string,exams:Array<{param:string,val:number}>}>} */
@@ -39,7 +39,6 @@ document.addEventListener('DOMContentLoaded', () => {
   let tChart = null;
 
   const mainAddBtn = document.getElementById('mainAddBtn');
-  const historyAddBtn = document.getElementById('historyAddBtn');
 
   // -------------------- PWA --------------------
   try {
@@ -84,9 +83,25 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function toNum(v) {
-    const n = Number(v);
+    const s = String(v ?? '').trim();
+    if (!s) return null;
+    const n = Number(s.replace(',', '.'));
     return Number.isFinite(n) ? n : null;
   }
+
+  function normName(s) {
+    return String(s || '')
+      .toUpperCase()
+      .replace(/[._]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function getParamConfig(name) {
+    const key = normName(name);
+    return dict.find(p => normName(p.name) === key) || null;
+  }
+
 
   function clamp(n, a, b) {
     return Math.min(b, Math.max(a, n));
@@ -158,7 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function getAllValuesForParam(paramName) {
     const pts = [];
     for (const r of reports) {
-      const row = r.exams?.find(e => e.param === paramName);
+      const row = r.exams?.find(e => normName(e.param) === normName(paramName));
       const v = row ? toNum(row.val) : null;
       if (v !== null) pts.push({ date: r.date, val: v, reportId: r.id });
     }
@@ -320,10 +335,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const redraw = () => {
       const pName = sel.value;
-      const pConfig = dict.find(d => d.name === pName);
+      const pConfig = getParamConfig(pName);
       const pts = [];
       reports.forEach(r => {
-        const f = r.exams?.find(e => e.param === pName);
+        const f = r.exams?.find(e => normName(e.param) === normName(pName));
         if (f && toNum(f.val) !== null) pts.push({ x: r.date, y: toNum(f.val) });
       });
       pts.sort((a, b) => new Date(a.x) - new Date(b.x));
@@ -389,7 +404,6 @@ document.addEventListener('DOMContentLoaded', () => {
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          animation: { duration: 650, easing: 'easeOutQuart' },
           plugins: {
             legend: { display: false },
             tooltip: {
@@ -445,7 +459,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const notes = (r.notes || '').trim();
 
       const rows = (r.exams || []).map(ex => {
-        const p = dict.find(d => d.name === ex.param) || { name: ex.param, unit: '', min: null, max: null, decimals: 1 };
+        const p = getParamConfig(ex.param) || { name: ex.param, unit: '', min: null, max: null, decimals: 1 };
         const v = toNum(ex.val);
         const st = statusForValue(p, v);
         const sev = severityForValue(p, v);
@@ -561,7 +575,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     tempExamsList.innerHTML = tempExams.map((e, idx) => {
-      const p = dict.find(d => d.name === e.param);
+      const p = getParamConfig(e.param);
       const unit = p?.unit || '';
       return `
         <div class="temp-row">
@@ -583,11 +597,6 @@ document.addEventListener('DOMContentLoaded', () => {
     editingReportId = null;
     tempExams = [];
     if (reportForm) reportForm.reset();
-    openExamModal();
-  };
-
-  // “+” nello Storico (in alto)
-  if (historyAddBtn) historyAddBtn.onclick = () => {
     openExamModal();
   };
   if (closeBtn) closeBtn.onclick = closeExamModal;
@@ -870,7 +879,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const rows = [['date', 'location', 'notes', 'param', 'value', 'unit', 'min', 'max']];
     sortReportsDesc(reports).forEach(r => {
       (r.exams || []).forEach(ex => {
-        const p = dict.find(d => d.name === ex.param) || {};
+        const p = getParamConfig(ex.param) || {};
         rows.push([
           r.date,
           (r.location || '').replace(/\n/g, ' '),
@@ -901,7 +910,7 @@ document.addEventListener('DOMContentLoaded', () => {
       .replace(/'/g, '&#039;');
   }
   function escapeAttr(str) {
-    return escapeHTML(str).replace(/\s+/g, '_');
+    return escapeHTML(str);
   }
 
   // -------------------- INIT --------------------
