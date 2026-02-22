@@ -73,8 +73,8 @@
                         <option value="higher_better">Più alto è meglio</option>
                     </select>
                     <div class="input-row" style="display:flex; gap:10px; margin-top:10px">
-                        <input type="text" id="confMin" placeholder="Min" inputmode="decimal">
-                        <input type="text" id="confMax" placeholder="Max" inputmode="decimal">
+                        <input type="number" id="confMin" placeholder="Min" step="0.1">
+                        <input type="number" id="confMax" placeholder="Max" step="0.1">
                     </div>
                     <button type="submit" class="button primary-button" style="margin-top:15px">Aggiungi al Dizionario</button>
                 </form>
@@ -101,7 +101,8 @@
                 <i class="fas fa-file-csv" style="margin-right: 10px;"></i> Esporta per Excel (CSV)
             </button>
             
-            <input type="file" id="importFile" class="file-input-hidden" onchange="importJSON(event)" accept=".json">
+            <!-- iOS: display:none può bloccare l'apertura del file picker -->
+            <input type="file" id="importFile" class="sr-file" onchange="importJSON(event)" accept=".json">
         </div>
     </div>
 
@@ -126,7 +127,7 @@
                     </div>
                     <div style="flex:1">
                         <label class="label-small">DECIMALI</label>
-                        <input type="number" id="editDictDecimals" min="0" max="4">
+                        <input type="number" id="editDictDecimals" min="0" max="4" step="1">
                     </div>
                 </div>
                 <div class="input-group" style="margin-top:10px">
@@ -140,11 +141,11 @@
                 <div class="input-row" style="display:flex; gap:10px; margin-top:10px">
                     <div style="flex:1">
                         <label class="label-small">MIN</label>
-                        <input type="text" id="editDictMin" inputmode="decimal">
+                        <input type="text" id="editDictMin" inputmode="decimal" autocomplete="off">
                     </div>
                     <div style="flex:1">
                         <label class="label-small">MAX</label>
-                        <input type="text" id="editDictMax" inputmode="decimal">
+                        <input type="text" id="editDictMax" inputmode="decimal" autocomplete="off">
                     </div>
                 </div>
                 <button type="submit" class="button primary-button" style="margin-top:20px">Salva Modifiche</button>
@@ -178,7 +179,7 @@
                 <div class="add-row-box" style="background: var(--ios-bg); padding: 15px; border-radius: 12px;">
                     <label class="label-small">AGGIUNGI PARAMETRO</label>
                     <select id="examParamSelect" class="ios-select"></select>
-                    <input type="text" id="examValue" placeholder="Valore" style="margin-top:8px" inputmode="decimal">
+                    <input type="number" id="examValue" step="0.1" placeholder="Valore" style="margin-top:8px">
                     <button type="button" id="btnAddRow" class="button secondary-button" style="margin-top: 10px; background: white;">+ Inserisci Riga</button>
                 </div>
                 

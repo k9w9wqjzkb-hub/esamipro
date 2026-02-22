@@ -89,7 +89,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const n = Number(s.replace(',', '.'));
     return Number.isFinite(n) ? n : null;
   }
-function clamp(n, a, b) {
+
+  // Normalizzazione nomi parametri: evita mismatch tra dizionario e referti
+  function normName(s) {
+    return String(s || '')
+      .toUpperCase()
+      .replace(/[._]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function getParamConfig(name) {
+    const key = normName(name);
+    return dict.find(p => normName(p.name) === key) || null;
+  }
+
+  function stepFromDecimals(decimals) {
+    const d = clamp(Number(decimals ?? 1), 0, 4);
+    if (d === 0) return '1';
+    return String(Math.pow(10, -d));
+  }
+
+  function clamp(n, a, b) {
     return Math.min(b, Math.max(a, n));
   }
 
@@ -111,10 +132,23 @@ function clamp(n, a, b) {
     return Number(val).toFixed(d).replace(/\.0+$/, '').replace(/(\.[0-9]*?)0+$/, '$1');
   }
 
+  // Come fmt(), ma NON taglia gli zeri: utile per i range (es. 0.000 - 0.100)
   function fmtFixed(val, decimals = 1) {
     if (val === null || val === undefined || !Number.isFinite(val)) return '--';
     const d = clamp(Number(decimals ?? 1), 0, 4);
     return Number(val).toFixed(d);
+  }
+
+  function formatRange(p) {
+    if (!p) return 'Range: —';
+    const d = p.decimals ?? 1;
+    const min = (p.min === '' || p.min === undefined) ? null : toNum(p.min);
+    const max = (p.max === '' || p.max === undefined) ? null : toNum(p.max);
+    const unit = p.unit ? ` ${escapeHTML(p.unit)}` : '';
+    if (min === null && max === null) return `Range: —${unit}`;
+    if (min !== null && max !== null) return `Range: ${fmtFixed(min, d)} - ${fmtFixed(max, d)}${unit}`;
+    if (min !== null) return `Range: ≥ ${fmtFixed(min, d)}${unit}`;
+    return `Range: ≤ ${fmtFixed(max, d)}${unit}`;
   }
 
   function statusForValue(p, v) {
@@ -165,7 +199,7 @@ function clamp(n, a, b) {
   function getAllValuesForParam(paramName) {
     const pts = [];
     for (const r of reports) {
-      const row = r.exams?.find(e => e.param === paramName);
+      const row = r.exams?.find(e => normName(e.param) === normName(paramName));
       const v = row ? toNum(row.val) : null;
       if (v !== null) pts.push({ date: r.date, val: v, reportId: r.id });
     }
@@ -271,7 +305,7 @@ function clamp(n, a, b) {
             <div class="card-white" style="display:flex; justify-content:space-between; align-items:center; border-left:5px solid var(--danger); margin-bottom:8px">
               <div>
                 <b>${escapeHTML(p.name)}</b><br>
-                <small style="color:var(--gray)">Range: ${escapeHTML(rangeText(p))}</small><br>
+                <small style="color:var(--gray)">Range: ${p.min ?? '—'}-${p.max ?? '—'} ${escapeHTML(p.unit || '')}</small><br>
                 <small style="color:var(--gray); font-weight:800">Severità: ${sev.label}${dTxt}</small>
               </div>
               <div style="text-align:right; color:var(--danger)">
@@ -327,10 +361,10 @@ function clamp(n, a, b) {
 
     const redraw = () => {
       const pName = sel.value;
-      const pConfig = dict.find(d => d.name === pName);
+      const pConfig = getParamConfig(pName);
       const pts = [];
       reports.forEach(r => {
-        const f = r.exams?.find(e => e.param === pName);
+        const f = r.exams?.find(e => normName(e.param) === normName(pName));
         if (f && toNum(f.val) !== null) pts.push({ x: r.date, y: toNum(f.val) });
       });
       pts.sort((a, b) => new Date(a.x) - new Date(b.x));
@@ -451,7 +485,7 @@ function clamp(n, a, b) {
       const notes = (r.notes || '').trim();
 
       const rows = (r.exams || []).map(ex => {
-        const p = dict.find(d => d.name === ex.param) || { name: ex.param, unit: '', min: null, max: null, decimals: 1 };
+        const p = getParamConfig(ex.param) || { name: ex.param, unit: '', min: null, max: null, decimals: 1 };
         const v = toNum(ex.val);
         const st = statusForValue(p, v);
         const sev = severityForValue(p, v);
@@ -466,15 +500,17 @@ function clamp(n, a, b) {
           dTxt = `Δ ${d > 0 ? '+' : ''}${fmt(d, p.decimals)}${pct === null ? '' : ` (${fmt(pct, 1)}%)`}`;
         }
 
-        const badge = st.out
-          ? `<span class="badge ${sev.level === 'light' ? 'badge-warn' : 'badge-danger'}">${st.state === 'HIGH' ? 'ALTO' : 'BASSO'} • ${sev.label}</span>`
-          : `<span class="badge badge-ok">OK</span>`;
+        let badge = `<span class="badge badge-ok">OK</span>`;
+        if (st.out) {
+          const cls = (sev.level === 'severe' || sev.level === 'moderate') ? 'badge-danger' : 'badge-warn';
+          badge = `<span class="badge ${cls}">${st.state === 'HIGH' ? 'ALTO' : 'BASSO'} • ${sev.label}</span>`;
+        }
         return `
           <div class="hist-row">
             <div style="display:flex; align-items:center; justify-content:space-between; gap:10px">
               <div style="min-width:0">
                 <b style="font-size:12px">${escapeHTML(p.name)}</b>
-                <div style="font-size:11px; color:var(--gray)">Range: ${escapeHTML(rangeText(p))}</div>
+                <div style="font-size:11px; color:var(--gray)">${formatRange(p)}</div>
               </div>
               <div style="text-align:right; white-space:nowrap">
                 <div style="font-weight:900">${v !== null ? fmt(v, p.decimals) : '--'} <span style="font-size:11px; font-weight:600">${escapeHTML(p.unit || '')}</span></div>
@@ -569,7 +605,7 @@ function clamp(n, a, b) {
       return;
     }
     tempExamsList.innerHTML = tempExams.map((e, idx) => {
-      const p = dict.find(d => d.name === e.param);
+      const p = getParamConfig(e.param);
       const unit = p?.unit || '';
       return `
         <div class="temp-row">
@@ -677,7 +713,7 @@ function clamp(n, a, b) {
         <div class="card-white" style="display:flex; justify-content:space-between; align-items:center; gap:10px">
           <div style="min-width:0">
             <b>${escapeHTML(p.name)}</b>
-            <div style="font-size:12px; color:var(--gray)">${escapeHTML(p.category || 'Altro')} • Range: ${escapeHTML(rangeText(p))}</div>
+            <div style="font-size:12px; color:var(--gray)">${escapeHTML(p.category || 'Altro')} • Range: ${p.min ?? '—'}-${p.max ?? '—'} ${escapeHTML(p.unit || '')}</div>
           </div>
           <div style="display:flex; gap:10px; flex-shrink:0">
             <button class="icon-btn" title="Modifica" onclick="openEditDict(${i})"><i class="fas fa-pen"></i></button>
@@ -844,120 +880,47 @@ function clamp(n, a, b) {
   window.importJSON = (ev) => {
     const file = ev?.target?.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const raw = String(reader.result || '');
-        const text = raw.replace(/^\uFEFF/, '').trim(); // rimuove BOM + spazi
-        if (!text) {
-          alert('File vuoto.');
-          return;
-        }
+        // rimuove BOM e spazi iniziali (alcuni file su iOS arrivano così)
+        const raw = String(reader.result || '').replace(/^\uFEFF/, '').trim();
+        const payload = JSON.parse(raw);
 
-        let payload;
-        try {
-          payload = JSON.parse(text);
-        } catch (err) {
-          console.error('Import JSON parse error:', err);
-          alert('Errore: il file non è un JSON valido.');
-          return;
-        }
+        // Accetta più formati:
+        // 1) {dict, reports}
+        // 2) {param_dict, blood_reports_v2}
+        // 3) {data:{dict,reports}} (alcuni export)
+        const pDict = payload?.dict ?? payload?.param_dict ?? payload?.data?.dict ?? null;
+        const pReports = payload?.reports ?? payload?.blood_reports_v2 ?? payload?.data?.reports ?? null;
 
-        // Supporta più formati storici:
-        // A) {dict: [...], reports: [...]} (formato attuale)
-        // B) {param_dict: [...], blood_reports_v2: [...]} (formato storage)
-        // C) [...reports] (array diretto)
-        let srcDict = null;
-        let srcReports = null;
+        if (Array.isArray(pDict) && Array.isArray(pReports)) {
+          dict = pDict.map(p => ({ decimals: 1, direction: 'range', category: 'Altro', ...p }));
+          reports = pReports.map(r => ({ ...r, id: r.id || uid() }));
 
-        if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
-          if (Array.isArray(payload.dict) && Array.isArray(payload.reports)) {
-            srcDict = payload.dict;
-            srcReports = payload.reports;
-          } else if (Array.isArray(payload.param_dict) && Array.isArray(payload.blood_reports_v2)) {
-            srcDict = payload.param_dict;
-            srcReports = payload.blood_reports_v2;
-          } else if (Array.isArray(payload.reports) && Array.isArray(payload.param_dict)) {
-            // variante mista
-            srcDict = payload.param_dict;
-            srcReports = payload.reports;
-          } else if (Array.isArray(payload.reports_v2) && Array.isArray(payload.dict)) {
-            srcDict = payload.dict;
-            srcReports = payload.reports_v2;
-          }
-        } else if (Array.isArray(payload)) {
-          // array di report
-          srcReports = payload;
-          srcDict = null;
-        }
+          // normalizza numeri e struttura exams
+          reports = reports.map(r => ({
+            id: r.id || uid(),
+            date: r.date,
+            location: r.location || '',
+            notes: r.notes || '',
+            exams: (r.exams || []).map(ex => ({
+              param: ex.param,
+              val: toNum(ex.val),
+            })).filter(ex => ex.param && ex.val !== null)
+          }));
 
-        if (!srcReports || !Array.isArray(srcReports)) {
-          alert('File non valido: non trovo la lista dei referti.');
-          return;
-        }
-
-        // Se nel backup manca il dizionario, manteniamo quello corrente
-        const safeClamp = (n, a, b) => Math.min(b, Math.max(a, n));
-        const parseMaybeNum = (v) => {
-          if (v === null || v === undefined || v === '') return null;
-          const s = String(v).trim();
-          if (!s) return null;
-          const n = Number(s.replace(',', '.'));
-          return Number.isFinite(n) ? n : null;
-        };
-
-        if (srcDict && Array.isArray(srcDict)) {
-          dict = srcDict
-            .filter(p => p && (p.name || p.nome)) // tollera chiavi "nome"
-            .map(p => {
-              const name = String(p.name || p.nome || '').trim().toUpperCase();
-              const unit = String(p.unit || p.unita || '').trim();
-              const decimals = safeClamp(Number(p.decimals ?? 1), 0, 4);
-              return {
-                decimals: 1,
-                direction: 'range',
-                category: 'Altro',
-                ...p,
-                name,
-                unit,
-                min: parseMaybeNum(p.min),
-                max: parseMaybeNum(p.max),
-                decimals,
-              };
-            });
           saveDict();
+          saveReports();
+          renderDashboard();
+          renderHistory();
+          renderDictList();
+          alert('Backup importato ✅');
+        } else {
+          alert('File non valido.');
         }
-
-        reports = srcReports
-          .filter(r => r && (r.date || r.data))
-          .map(r => {
-            const examsRaw = Array.isArray(r.exams) ? r.exams : (Array.isArray(r.esami) ? r.esami : []);
-            const exams = examsRaw
-              .filter(ex => ex && (ex.param || ex.nome))
-              .map(ex => ({
-                param: String(ex.param || ex.nome || '').trim().toUpperCase(),
-                val: parseMaybeNum(ex.val ?? ex.value ?? ex.valore),
-              }))
-              .filter(ex => ex.param && ex.val !== null);
-
-            return {
-              id: r.id || uid(),
-              date: String(r.date || r.data || '').slice(0, 10),
-              location: String(r.location || r.laboratorio || r.sede || '').trim(),
-              notes: String(r.notes || r.note || '').trim(),
-              exams
-            };
-          });
-
-        saveReports();
-        renderDashboard();
-        renderHistory();
-        renderDictList();
-
-        alert(`Backup importato ✅\nReferti: ${reports.length}${dict ? `\nParametri: ${dict.length}` : ''}`);
       } catch (err) {
-        console.error('Import error:', err);
+        console.error('Import backup error:', err);
         alert('Errore durante l’importazione. (Controlla la console per dettagli)');
       } finally {
         if (importFile) importFile.value = '';
@@ -970,7 +933,7 @@ function clamp(n, a, b) {
     const rows = [['date', 'location', 'notes', 'param', 'value', 'unit', 'min', 'max']];
     sortReportsDesc(reports).forEach(r => {
       (r.exams || []).forEach(ex => {
-        const p = dict.find(d => d.name === ex.param) || {};
+        const p = getParamConfig(ex.param) || {};
         rows.push([
           r.date,
           (r.location || '').replace(/\n/g, ' '),
@@ -1001,14 +964,10 @@ function clamp(n, a, b) {
       .replace(/'/g, '&#039;');
   }
   function escapeAttr(str) {
-    return escapeHTML(str).replace(/\s+/g, '_');
+    // Non modificare il testo (niente underscore): serve solo a evitare problemi HTML
+    return escapeHTML(str);
   }
 
   // -------------------- INIT --------------------
   showView('dashboard');
-});  function rangeText(p) {
-    const s = formatRange(p);
-    return s.startsWith('Range: ') ? s.slice(7) : s;
-  }
-
-
+});
