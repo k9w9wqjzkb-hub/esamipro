@@ -78,7 +78,31 @@
             </div>
             <div id="dictionaryList" style="margin-top:20px"></div>
 
-            <div class="card-white" style="margin-top:16px">
+            
+        </div>
+    </main>
+
+    <div id="toolsModal" class="modal">
+        <div class="modal-content">
+            <span class="close-tools" style="float:right; cursor:pointer; font-size:24px; color:var(--gray)">&times;</span>
+            <h3 style="margin-top:0">Gestione Dati</h3>
+            <p style="font-size: 13px; color: var(--gray); margin-bottom: 20px;">Esporta i tuoi dati per sicurezza o importali da un backup precedente.</p>
+            
+            <button onclick="exportJSON()" class="button secondary-button" style="text-align: left;">
+                <i class="fas fa-file-download" style="margin-right: 10px;"></i> Backup Completo (JSON)
+            </button>
+            
+            <button onclick="document.getElementById('importFile').click()" class="button secondary-button" style="text-align: left;">
+                <i class="fas fa-file-upload" style="margin-right: 10px;"></i> Ripristina Backup
+            </button>
+            
+            <button onclick="exportCSV()" class="button secondary-button" style="text-align: left;">
+                <i class="fas fa-file-csv" style="margin-right: 10px;"></i> Esporta per Excel (CSV)
+            </button>
+            
+            
+            <hr style="border:0; border-top:1px solid #E5E5EA; margin:16px 0;">
+<div class="card-white" style="margin-top:14px">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px">
                     <h3 style="margin:0; font-size:16px">Sicurezza</h3>
                     <label class="switch">
@@ -108,28 +132,7 @@
                 <small id="securityStatus" style="display:block; margin-top:10px; color:var(--gray)"></small>
             </div>
 
-        </div>
-    </main>
-
-    <div id="toolsModal" class="modal">
-        <div class="modal-content">
-            <span class="close-tools" style="float:right; cursor:pointer; font-size:24px; color:var(--gray)">&times;</span>
-            <h3 style="margin-top:0">Gestione Dati</h3>
-            <p style="font-size: 13px; color: var(--gray); margin-bottom: 20px;">Esporta i tuoi dati per sicurezza o importali da un backup precedente.</p>
-            
-            <button onclick="exportJSON()" class="button secondary-button" style="text-align: left;">
-                <i class="fas fa-file-download" style="margin-right: 10px;"></i> Backup Completo (JSON)
-            </button>
-            
-            <button onclick="document.getElementById('importFile').click()" class="button secondary-button" style="text-align: left;">
-                <i class="fas fa-file-upload" style="margin-right: 10px;"></i> Ripristina Backup
-            </button>
-            
-            <button onclick="exportCSV()" class="button secondary-button" style="text-align: left;">
-                <i class="fas fa-file-csv" style="margin-right: 10px;"></i> Esporta per Excel (CSV)
-            </button>
-            
-            <input type="file" id="importFile" style="display:none" onchange="importJSON(event)" accept=".json">
+<input type="file" id="importFile" style="display:none" onchange="importJSON(event)" accept=".json">
         </div>
     </div>
 
