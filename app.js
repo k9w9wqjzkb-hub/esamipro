@@ -877,7 +877,232 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
-  // -------------------- TOOLS (BACKUP) --------------------
+  
+  // -------------------- SECURITY (PIN / FaceID placeholder) --------------------
+  // Logica minimale e robusta. Non tocca import/export né i dati clinici.
+  const LS_LOCK_ENABLED = 'ime_lock_enabled_v1';
+  const LS_PIN_HASH = 'ime_pin_hash_v1';
+  const LS_BIO_ENABLED = 'ime_bio_enabled_v1';
+
+  const lockEnabledToggle = document.getElementById('lockEnabledToggle');
+  const pinNew = document.getElementById('pinNew');
+  const pinConfirm = document.getElementById('pinConfirm');
+  const btnSavePin = document.getElementById('btnSavePin');
+  const btnSetupBiometric = document.getElementById('btnSetupBiometric');
+  const btnDisableBiometric = document.getElementById('btnDisableBiometric');
+  const securityStatus = document.getElementById('securityStatus');
+
+  function setSecurityStatus(msg = '', tone = 'neutral') {
+    if (!securityStatus) return;
+    securityStatus.textContent = msg;
+    securityStatus.style.color =
+      tone === 'ok' ? 'var(--success)' :
+      tone === 'bad' ? 'var(--danger)' :
+      'var(--gray)';
+  }
+
+  function getLockEnabled() { return localStorage.getItem(LS_LOCK_ENABLED) === '1'; }
+  function setLockEnabled(v) { localStorage.setItem(LS_LOCK_ENABLED, v ? '1' : '0'); }
+  function hasPin() { return !!localStorage.getItem(LS_PIN_HASH); }
+
+  async function sha256(text) {
+    try {
+      if (window.crypto?.subtle) {
+        const enc = new TextEncoder();
+        const buf = await window.crypto.subtle.digest('SHA-256', enc.encode(text));
+        return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+      }
+    } catch (_) {}
+    // fallback (non perfetto ma evita rotture su device vecchi)
+    let h = 0;
+    for (let i = 0; i < text.length; i++) { h = ((h << 5) - h) + text.charCodeAt(i); h |= 0; }
+    return `h${Math.abs(h)}`;
+  }
+
+  async function savePin() {
+    const a = (pinNew?.value || '').trim();
+    const b = (pinConfirm?.value || '').trim();
+
+    if (!a || !b) { setSecurityStatus('Inserisci e conferma il PIN.', 'bad'); return; }
+    if (a !== b) { setSecurityStatus('I PIN non coincidono.', 'bad'); return; }
+    if (!/^[0-9]{4,8}$/.test(a)) { setSecurityStatus('PIN non valido: usa 4–8 cifre.', 'bad'); return; }
+
+    const hash = await sha256(a);
+    localStorage.setItem(LS_PIN_HASH, hash);
+    setLockEnabled(true);
+
+    if (lockEnabledToggle) lockEnabledToggle.checked = true;
+    if (pinNew) pinNew.value = '';
+    if (pinConfirm) pinConfirm.value = '';
+
+    setSecurityStatus('PIN salvato ✅', 'ok');
+    syncBiometricButtons();
+
+// --------- Lock screen (blocco effettivo all'avvio) ---------
+// Nota: solo front-end. Serve PWA/HTTPS per biometria reale.
+const LS_UNLOCKED = 'ime_unlocked_session_v1';
+const lockScreen = document.getElementById('lockScreen');
+const lockPinInput = document.getElementById('lockPinInput');
+const lockError = document.getElementById('lockError');
+const btnUnlock = document.getElementById('btnUnlock');
+const btnUnlockBio = document.getElementById('btnUnlockBiometric');
+
+function isUnlocked() {
+  return sessionStorage.getItem(LS_UNLOCKED) === '1';
+}
+function setUnlocked(v) {
+  sessionStorage.setItem(LS_UNLOCKED, v ? '1' : '0');
+}
+
+function lockShow(msg = '') {
+  if (!lockScreen) return;
+  lockScreen.style.display = 'flex';
+  if (lockError) lockError.textContent = msg;
+  if (lockPinInput) {
+    lockPinInput.value = '';
+    // focus leggermente differito per iOS
+    setTimeout(() => lockPinInput.focus(), 50);
+  }
+}
+function lockHide() {
+  if (!lockScreen) return;
+  lockScreen.style.display = 'none';
+  if (lockError) lockError.textContent = '';
+}
+
+async function verifyPinInput() {
+  const enabled = getLockEnabled();
+  if (!enabled) return true;
+  const stored = localStorage.getItem(LS_PIN_HASH);
+  if (!stored) {
+    lockShow('Imposta un PIN in Config → Sicurezza.');
+    return false;
+  }
+  const pin = (lockPinInput?.value || '').trim();
+  const hash = await sha256(pin);
+  const ok = hash === stored;
+  if (!ok) {
+    lockShow('PIN errato.');
+    return false;
+  }
+  setUnlocked(true);
+  lockHide();
+  return true;
+}
+
+function biometricAvailable() {
+  // Placeholder: mostriamo il tasto solo se “attiva” + contesto sicuro.
+  // L’unlock reale via WebAuthn si può aggiungere più avanti.
+  const flag = localStorage.getItem(LS_BIO_ENABLED) === '1';
+  const secure = Boolean(window.isSecureContext);
+  return flag && secure;
+}
+
+async function unlockWithBiometricPlaceholder() {
+  // Per ora: se l'utente ha flag biometria ON, consideriamo lo sblocco riuscito.
+  // (Upgrade futuro: WebAuthn con userVerification='required')
+  if (!biometricAvailable()) return false;
+  return true;
+}
+
+function enforceLockIfNeeded(reason = '') {
+  const enabled = getLockEnabled();
+  if (!enabled) { lockHide(); return; }
+  if (!hasPin()) { lockHide(); return; }
+  if (!isUnlocked()) lockShow(reason);
+}
+
+if (btnUnlock) btnUnlock.addEventListener('click', () => { verifyPinInput(); });
+if (lockPinInput) lockPinInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') verifyPinInput(); });
+
+if (btnUnlockBio) {
+  btnUnlockBio.style.display = biometricAvailable() ? 'block' : 'none';
+  btnUnlockBio.addEventListener('click', async () => {
+    const ok = await unlockWithBiometricPlaceholder();
+    if (ok) {
+      setUnlocked(true);
+      lockHide();
+    } else {
+      lockShow('Sblocco biometrico non disponibile.');
+    }
+  });
+}
+
+// All'avvio: se blocco attivo, mostra subito la schermata di sblocco.
+// Importante: non persistiamo lo sblocco, resta solo per la sessione.
+if (getLockEnabled() && hasPin()) {
+  setUnlocked(false);
+  enforceLockIfNeeded();
+}
+
+// Quando l'app va in background, richiedi di nuovo il PIN al ritorno.
+document.addEventListener('visibilitychange', () => {
+  if (!getLockEnabled() || !hasPin()) return;
+  if (document.hidden) {
+    setUnlocked(false);
+  } else {
+    enforceLockIfNeeded();
+  }
+});
+
+
+// Se disattivi il blocco mentre sei nella schermata di lock, chiudila subito.
+if (lockEnabledToggle) {
+  lockEnabledToggle.addEventListener('change', () => {
+    if (!getLockEnabled()) {
+      setUnlocked(true);
+      lockHide();
+    }
+    if (btnUnlockBio) btnUnlockBio.style.display = biometricAvailable() ? 'block' : 'none';
+  });
+}
+  }
+
+  function syncBiometricButtons() {
+    const enabled = localStorage.getItem(LS_BIO_ENABLED) === '1';
+    const canShow = hasPin();
+    if (btnSetupBiometric) btnSetupBiometric.style.display = (canShow && !enabled) ? 'block' : 'none';
+    if (btnDisableBiometric) btnDisableBiometric.style.display = (canShow && enabled) ? 'block' : 'none';
+  }
+
+  // Init toggle + handlers
+  if (lockEnabledToggle) {
+    lockEnabledToggle.checked = getLockEnabled();
+    lockEnabledToggle.addEventListener('change', () => {
+      const want = lockEnabledToggle.checked;
+      if (want && !hasPin()) {
+        lockEnabledToggle.checked = false;
+        setLockEnabled(false);
+        setSecurityStatus('Prima salva un PIN per attivare il blocco.', 'bad');
+        return;
+      }
+      setLockEnabled(want);
+      setSecurityStatus(want ? 'Blocco attivo.' : 'Blocco disattivato.', want ? 'ok' : 'neutral');
+      syncBiometricButtons();
+    });
+  }
+
+  if (btnSavePin) btnSavePin.addEventListener('click', () => { savePin(); });
+
+  // “Biometria” placeholder: salviamo solo il flag (FaceID reale via WebAuthn sarebbe un upgrade separato).
+  if (btnSetupBiometric) btnSetupBiometric.addEventListener('click', () => {
+    if (!hasPin()) { setSecurityStatus('Prima salva un PIN.', 'bad'); return; }
+    localStorage.setItem(LS_BIO_ENABLED, '1');
+    setSecurityStatus('Biometria segnata come attiva ✅', 'ok');
+    syncBiometricButtons();
+  });
+  if (btnDisableBiometric) btnDisableBiometric.addEventListener('click', () => {
+    localStorage.setItem(LS_BIO_ENABLED, '0');
+    setSecurityStatus('Biometria disattivata.', 'neutral');
+    syncBiometricButtons();
+  });
+
+  if (securityStatus) {
+    setSecurityStatus(hasPin() ? (getLockEnabled() ? 'Blocco attivo.' : 'Blocco disattivato.') : 'Imposta un PIN per proteggere l’app.');
+  }
+  syncBiometricButtons();
+
+// -------------------- TOOLS (BACKUP) --------------------
   const toolsModal = document.getElementById('toolsModal');
   const btnTools = document.getElementById('btnTools');
   const closeToolsBtn = document.querySelector('.close-tools');
@@ -979,115 +1204,6 @@ document.addEventListener('DOMContentLoaded', () => {
   function escapeAttr(str) {
     return escapeHTML(str).replace(/\s+/g, '_');
   }
-
-  // -------------------- SECURITY (PIN) --------------------
-  // NOTE: self-contained; does not affect backup/import logic.
-  const LS_PIN_HASH = 'app_pin_hash_v1';
-  const LS_LOCK_ENABLED = 'app_lock_enabled_v1';
-  const LS_BIO_ENABLED = 'app_bio_enabled_v1';
-
-  const lockEnabledToggle = document.getElementById('lockEnabledToggle');
-  const pinNew = document.getElementById('pinNew');
-  const pinConfirm = document.getElementById('pinConfirm');
-  const btnSavePin = document.getElementById('btnSavePin');
-  const btnSetupBiometric = document.getElementById('btnSetupBiometric');
-  const btnDisableBiometric = document.getElementById('btnDisableBiometric');
-  const securityStatus = document.getElementById('securityStatus');
-
-  function isPinValid(pin) { return /^[0-9]{4,8}$/.test(pin); }
-
-  function bufToB64(buf) {
-    const bytes = new Uint8Array(buf);
-    let s = '';
-    for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
-    return btoa(s);
-  }
-
-  async function sha256B64(text) {
-    if (window.crypto?.subtle) {
-      const enc = new TextEncoder().encode(text);
-      const digest = await crypto.subtle.digest('SHA-256', enc);
-      return bufToB64(digest);
-    }
-    // Fallback (non-cryptographic)
-    return btoa(unescape(encodeURIComponent(text)));
-  }
-
-  function hasPin() { return !!localStorage.getItem(LS_PIN_HASH); }
-
-  function setStatus(msg, ok = true) {
-    if (!securityStatus) return;
-    securityStatus.textContent = msg;
-    securityStatus.style.color = ok ? 'var(--success)' : 'var(--danger)';
-  }
-
-  function syncSecurityUI() {
-    const enabled = localStorage.getItem(LS_LOCK_ENABLED) === '1';
-    const pinSet = hasPin();
-    if (lockEnabledToggle) lockEnabledToggle.checked = enabled;
-
-    const bioOn = localStorage.getItem(LS_BIO_ENABLED) === '1';
-    if (btnDisableBiometric) btnDisableBiometric.style.display = bioOn ? 'block' : 'none';
-    if (btnSetupBiometric) btnSetupBiometric.style.display = bioOn ? 'none' : 'block';
-
-    if (pinSet) setStatus(enabled ? 'Blocco attivo ✅' : 'PIN impostato ✅ (blocco OFF)');
-    else setStatus('Nessun PIN impostato', false);
-  }
-
-  if (btnSavePin) {
-    btnSavePin.addEventListener('click', async () => {
-      const a = (pinNew?.value || '').trim();
-      const b = (pinConfirm?.value || '').trim();
-
-      if (!isPinValid(a)) { setStatus('PIN non valido (4–8 cifre)', false); return; }
-      if (a !== b) { setStatus('PIN e conferma non coincidono', false); return; }
-
-      try {
-        const hash = await sha256B64(a);
-        localStorage.setItem(LS_PIN_HASH, hash);
-        if (localStorage.getItem(LS_LOCK_ENABLED) !== '1') localStorage.setItem(LS_LOCK_ENABLED, '1');
-        if (pinNew) pinNew.value = '';
-        if (pinConfirm) pinConfirm.value = '';
-        setStatus('PIN salvato ✅');
-        syncSecurityUI();
-      } catch (err) {
-        console.error('PIN save error:', err);
-        setStatus('Errore nel salvataggio del PIN', false);
-      }
-    });
-  }
-
-  if (lockEnabledToggle) {
-    lockEnabledToggle.addEventListener('change', () => {
-      if (lockEnabledToggle.checked) {
-        if (!hasPin()) { lockEnabledToggle.checked = false; setStatus('Imposta prima un PIN', false); return; }
-        localStorage.setItem(LS_LOCK_ENABLED, '1');
-        setStatus('Blocco attivo ✅');
-      } else {
-        localStorage.setItem(LS_LOCK_ENABLED, '0');
-        setStatus(hasPin() ? 'Blocco disattivato' : 'Nessun PIN impostato', hasPin());
-      }
-    });
-  }
-
-  if (btnSetupBiometric) {
-    btnSetupBiometric.addEventListener('click', () => {
-      if (!hasPin()) { setStatus('Imposta prima un PIN', false); return; }
-      localStorage.setItem(LS_BIO_ENABLED, '1');
-      setStatus('Biometria attivata ✅');
-      syncSecurityUI();
-    });
-  }
-
-  if (btnDisableBiometric) {
-    btnDisableBiometric.addEventListener('click', () => {
-      localStorage.setItem(LS_BIO_ENABLED, '0');
-      setStatus('Biometria disattivata');
-      syncSecurityUI();
-    });
-  }
-
-  syncSecurityUI();
 
   // -------------------- INIT --------------------
   showView('dashboard');
