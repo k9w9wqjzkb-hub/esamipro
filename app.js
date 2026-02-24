@@ -379,6 +379,21 @@ document.addEventListener('DOMContentLoaded', () => {
     return Number.isFinite(n) ? n : null;
   }
 
+  // Normalizza nomi parametro per match robusto (spazi/underscore/punti/maiuscole)
+  function normName(s) {
+    return String(s || '')
+      .toUpperCase()
+      .replace(/[._]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function getParamConfig(name) {
+    const key = normName(name);
+    return dict.find(p => normName(p.name) === key) || null;
+  }
+
+
   function clamp(n, a, b) {
     return Math.min(b, Math.max(a, n));
   }
@@ -396,9 +411,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function fmt(val, decimals = 1) {
+    // Visualizzazione coerente: mostra ESATTAMENTE i decimali configurati (0..4)
     if (val === null || val === undefined || !Number.isFinite(val)) return '--';
     const d = clamp(Number(decimals ?? 1), 0, 4);
-    return Number(val).toFixed(d).replace(/\.0+$/, '').replace(/(\.[0-9]*?)0+$/, '$1');
+    if (d === 0) return String(Math.round(Number(val)));
+    return Number(val).toFixed(d);
   }
 
   function statusForValue(p, v) {
@@ -449,7 +466,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function getAllValuesForParam(paramName) {
     const pts = [];
     for (const r of reports) {
-      const row = r.exams?.find(e => e.param === paramName);
+      const row = r.exams?.find(e => normName(e.param) === normName(paramName));
       const v = row ? toNum(row.val) : null;
       if (v !== null) pts.push({ date: r.date, val: v, reportId: r.id });
     }
@@ -611,10 +628,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const redraw = () => {
       const pName = sel.value;
-      const pConfig = dict.find(d => d.name === pName);
+      const pConfig = getParamConfig(pName);
       const pts = [];
       reports.forEach(r => {
-        const f = r.exams?.find(e => e.param === pName);
+        const f = r.exams?.find(e => normName(e.param) === normName(pName));
         if (f && toNum(f.val) !== null) pts.push({ x: r.date, y: toNum(f.val) });
       });
       pts.sort((a, b) => new Date(a.x) - new Date(b.x));
@@ -736,7 +753,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const notes = (r.notes || '').trim();
 
       const rows = (r.exams || []).map(ex => {
-        const p = dict.find(d => d.name === ex.param) || { name: ex.param, unit: '', min: null, max: null, decimals: 1 };
+        const p = getParamConfig(ex.param) || { name: ex.param, unit: '', min: null, max: null, decimals: 1 };
         const v = toNum(ex.val);
         const st = statusForValue(p, v);
         const sev = severityForValue(p, v);
@@ -852,7 +869,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     tempExamsList.innerHTML = tempExams.map((e, idx) => {
-      const p = dict.find(d => d.name === e.param);
+      const p = getParamConfig(e.param);
       const unit = p?.unit || '';
       return `
         <div class="temp-row">
@@ -1161,7 +1178,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const rows = [['date', 'location', 'notes', 'param', 'value', 'unit', 'min', 'max']];
     sortReportsDesc(reports).forEach(r => {
       (r.exams || []).forEach(ex => {
-        const p = dict.find(d => d.name === ex.param) || {};
+        const p = getParamConfig(ex.param) || {};
         rows.push([
           r.date,
           (r.location || '').replace(/\n/g, ' '),
@@ -1192,7 +1209,8 @@ document.addEventListener('DOMContentLoaded', () => {
       .replace(/'/g, '&#039;');
   }
   function escapeAttr(str) {
-    return escapeHTML(str).replace(/\s+/g, '_');
+    // Non modificare il testo: serve solo per escapare HTML (evita mismatch tipo COLESTEROLO HDL)
+    return escapeHTML(str);
   }
 
   
