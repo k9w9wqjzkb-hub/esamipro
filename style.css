@@ -228,55 +228,200 @@ textarea {
     opacity: 0.9;
 }
 
+/* --- ANIMAZIONI VIEW (native feel) --- */
+.app-view.view-enter {
+  animation: viewEnter 220ms ease-out;
+}
+@keyframes viewEnter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
-/* ---- Lock screen (PIN) ---- */
-.lock-screen{
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  background: rgba(0,0,0,0.35);
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
-}
-.lock-card{
+/* iOS: evita glitch width su input date */
+input[type="date"]{
+  max-width: 100%;
   width: 100%;
-  max-width: 360px;
-  background: rgba(255,255,255,0.92);
-  border-radius: 20px;
-  padding: 18px 16px 16px;
-  box-shadow: 0 12px 34px rgba(0,0,0,0.18);
-  border: 1px solid rgba(255,255,255,0.55);
+  -webkit-appearance: none;
+  appearance: none;
 }
-.lock-title{
-  font-weight: 900;
-  font-size: 18px;
-  text-align: center;
+
+/* Divider form (Nuovo Referto) */
+.form-divider{
+  height: 1px;
+  background: #E5E5EA;
+  margin: 12px 0;
+  border-radius: 1px;
 }
-.lock-subtitle{
-  margin-top: 6px;
-  font-size: 12px;
-  text-align: center;
-  color: var(--gray);
+
+/* Badge: più leggibili + stato warning */
+.badge{ font-size: 11px; padding: 7px 12px; }
+.badge-warn{
+  background: rgba(255,149,0,0.12);
+  color: #FF9500;
 }
-.lock-input{
-  margin-top: 14px;
-  width: 100%;
-  padding: 14px;
-  border: 1px solid #D1D1D6;
-  border-radius: 12px;
-  font-size: 16px;
-  box-sizing: border-box;
-  background: rgba(255,255,255,0.9);
+
+/* --- MODAL (UI PRO) --- */
+
+.modal-header{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #E5E5EA;
+    margin-bottom: 14px;
 }
-.lock-error{
-  min-height: 18px;
-  margin-top: 8px;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--danger);
-  text-align: center;
+.modal-title{
+    margin:0;
+    font-size:18px;
+    font-weight:900;
+    letter-spacing:-0.2px;
+}
+.modal-subtitle{
+    margin:6px 0 0;
+    font-size:13px;
+    color: var(--gray);
+    line-height: 1.25;
+}
+.modal-close{
+    border:0;
+    background: rgba(0,0,0,0.06);
+    color: var(--gray);
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size: 22px;
+    cursor:pointer;
+}
+.modal-section{
+    background: #fff;
+    border: 1px solid #E5E5EA;
+    border-radius: 18px;
+    padding: 14px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+}
+.modal-divider{
+    height: 12px;
+    background: transparent;
+    margin: 12px 0;
+}
+.modal-section-title{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-weight:900;
+    font-size: 13px;
+    margin-bottom: 10px;
+    color: var(--text);
+}
+.modal-icon{
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+    background: rgba(0,122,255,0.10);
+    color: var(--ios-blue);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-shrink:0;
+}
+.modal-action-btn{
+    text-align:left;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin-top: 10px;
+}
+.modal-action-left{
+    display:flex;
+    align-items:center;
+    gap:10px;
+}
+.modal-action-left i{
+    width: 18px;
+    text-align:center;
+}
+.modal-action-right{
+    color: var(--gray);
+    font-size: 14px;
+    margin-left: 8px;
+}
+.modal-hint{
+    display:block;
+    margin-top: 10px;
+    color: var(--gray);
+    font-size: 12px;
+    line-height: 1.25;
+}
+.visually-hidden{
+    position:absolute !important;
+    width:1px !important;
+    height:1px !important;
+    padding:0 !important;
+    margin:-1px !important;
+    overflow:hidden !important;
+    clip: rect(0,0,0,0) !important;
+    white-space:nowrap !important;
+    border:0 !important;
+    opacity:0 !important;
+}
+
+/* Switch iOS-like */
+.switch{
+    position:relative;
+    display:inline-block;
+    width: 52px;
+    height: 32px;
+    flex-shrink:0;
+}
+.switch input{ display:none; }
+.slider{
+    position:absolute;
+    cursor:pointer;
+    top:0; left:0; right:0; bottom:0;
+    background: rgba(120,120,128,0.16);
+    border-radius: 999px;
+    transition: 0.2s;
+    border: 1px solid rgba(60,60,67,0.12);
+    box-sizing:border-box;
+}
+.slider:before{
+    position:absolute;
+    content:"";
+    height: 28px;
+    width: 28px;
+    left: 2px;
+    top: 1px;
+    background: white;
+    border-radius: 50%;
+    transition: 0.2s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+.switch input:checked + .slider{
+    background: var(--success);
+    border-color: rgba(0,0,0,0);
+}
+.switch input:checked + .slider:before{
+    transform: translateX(20px);
+}
+
+.security-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+}
+.security-title{
+    font-weight:900;
+    font-size: 13px;
+    margin-bottom: 2px;
+}
+.security-sub{
+    font-size: 12px;
+    color: var(--gray);
+    line-height: 1.25;
 }
