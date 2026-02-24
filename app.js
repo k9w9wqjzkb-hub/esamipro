@@ -55,13 +55,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const targetView = document.getElementById(`view-${target}`);
     if (targetView) targetView.style.display = 'block';
 
-    // animazione ingresso vista (native feel)
-    if (targetView) {
-      targetView.classList.remove('view-enter');
-      void targetView.offsetWidth;
-      targetView.classList.add('view-enter');
-    }
-
     document.querySelectorAll('.tab-item').forEach(t => t.classList.toggle('active', t.dataset.view === target));
     if (mainAddBtn) mainAddBtn.style.display = (target === 'dashboard') ? 'block' : 'none';
 
@@ -144,6 +137,40 @@ document.addEventListener('DOMContentLoaded', () => {
     const d = clamp(Number(decimals ?? 1), 0, 4);
     return Number(val).toFixed(d).replace(/\.0+$/, '').replace(/(\.[0-9]*?)0+$/, '$1');
   }
+
+
+// Normalizzazione nome parametro (per agganciare dizionario anche con underscore/punti/spazi)
+function normName(s) {
+  return String(s || '')
+    .toUpperCase()
+    .replace(/[._]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getParamConfig(name) {
+  const key = normName(name);
+  return dict.find(p => normName(p.name) === key) || null;
+}
+
+// Formattazione numeri: display coerente con "decimals" (anche mantenendo zeri finali)
+function fmtFixed(val, decimals = 1) {
+  if (val === null || val === undefined || !Number.isFinite(val)) return '--';
+  const d = clamp(Number(decimals ?? 1), 0, 4);
+  return Number(val).toFixed(d);
+}
+
+function rangeText(p) {
+  if (!p) return 'Range: —';
+  const hasMin = p.min !== null && p.min !== undefined && p.min !== '';
+  const hasMax = p.max !== null && p.max !== undefined && p.max !== '';
+  const d = clamp(Number(p.decimals ?? 1), 0, 4);
+  const unit = p.unit ? ` ${escapeHTML(p.unit)}` : '';
+  if (!hasMin && !hasMax) return `Range: —${unit}`;
+  if (hasMin && hasMax) return `Range: ${fmtFixed(toNum(p.min), d)} - ${fmtFixed(toNum(p.max), d)}${unit}`;
+  if (hasMin) return `Range: ≥ ${fmtFixed(toNum(p.min), d)}${unit}`;
+  return `Range: ≤ ${fmtFixed(toNum(p.max), d)}${unit}`;
+}
 
   function formatRange(p) {
     if (!p) return 'Range: ---';
@@ -368,7 +395,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const redraw = () => {
       const pName = sel.value;
-      const pConfig = dict.find(d => d.name === pName);
+      const pConfig = getParamConfig(pName);
       const pts = [];
       reports.forEach(r => {
         const f = r.exams?.find(e => normName(e.param) === normName(pName));
@@ -507,9 +534,7 @@ document.addEventListener('DOMContentLoaded', () => {
           dTxt = `Δ ${d > 0 ? '+' : ''}${fmt(d, p.decimals)}${pct === null ? '' : ` (${fmt(pct, 1)}%)`}`;
         }
 
-        const badge = st.out
-        ? `<span class="badge ${sev.level === 'light' ? 'badge-warn' : 'badge-danger'}">${st.state === 'HIGH' ? 'ALTO' : 'BASSO'} • ${sev.label}</span>`
-        : `<span class="badge badge-ok">OK</span>`;
+        const badge = st.out ? `<span class="badge badge-danger">${st.state === 'HIGH' ? 'ALTO' : 'BASSO'} • ${sev.label}</span>` : `<span class="badge badge-ok">OK</span>`;
         return `
           <div class="hist-row">
             <div style="display:flex; align-items:center; justify-content:space-between; gap:10px">
@@ -624,7 +649,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     tempExamsList.innerHTML = tempExams.map((e, idx) => {
-      const p = dict.find(d => d.name === e.param);
+      const p = getParamConfig(e.param);
       const unit = p?.unit || '';
       return `
         <div class="temp-row">
@@ -929,7 +954,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const payload = JSON.parse(String(reader.result || ''));
+        const raw = String(reader.result || '').replace(/^\uFEFF/, '');
+        const payload = JSON.parse(raw);
         if (payload?.dict && payload?.reports) {
           dict = (payload.dict || []).map(p => ({ decimals: 1, direction: 'range', category: 'Altro', ...p }));
           reports = (payload.reports || []).map(r => ({ ...r, id: r.id || uid() }));
