@@ -138,40 +138,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return Number(val).toFixed(d).replace(/\.0+$/, '').replace(/(\.[0-9]*?)0+$/, '$1');
   }
 
-
-// Normalizzazione nome parametro (per agganciare dizionario anche con underscore/punti/spazi)
-function normName(s) {
-  return String(s || '')
-    .toUpperCase()
-    .replace(/[._]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function getParamConfig(name) {
-  const key = normName(name);
-  return dict.find(p => normName(p.name) === key) || null;
-}
-
-// Formattazione numeri: display coerente con "decimals" (anche mantenendo zeri finali)
-function fmtFixed(val, decimals = 1) {
-  if (val === null || val === undefined || !Number.isFinite(val)) return '--';
-  const d = clamp(Number(decimals ?? 1), 0, 4);
-  return Number(val).toFixed(d);
-}
-
-function rangeText(p) {
-  if (!p) return 'Range: —';
-  const hasMin = p.min !== null && p.min !== undefined && p.min !== '';
-  const hasMax = p.max !== null && p.max !== undefined && p.max !== '';
-  const d = clamp(Number(p.decimals ?? 1), 0, 4);
-  const unit = p.unit ? ` ${escapeHTML(p.unit)}` : '';
-  if (!hasMin && !hasMax) return `Range: —${unit}`;
-  if (hasMin && hasMax) return `Range: ${fmtFixed(toNum(p.min), d)} - ${fmtFixed(toNum(p.max), d)}${unit}`;
-  if (hasMin) return `Range: ≥ ${fmtFixed(toNum(p.min), d)}${unit}`;
-  return `Range: ≤ ${fmtFixed(toNum(p.max), d)}${unit}`;
-}
-
   function formatRange(p) {
     if (!p) return 'Range: ---';
     const d = clamp(Number(p.decimals ?? 1), 0, 4);
@@ -395,7 +361,7 @@ function rangeText(p) {
 
     const redraw = () => {
       const pName = sel.value;
-      const pConfig = getParamConfig(pName);
+      const pConfig = dict.find(d => d.name === pName);
       const pts = [];
       reports.forEach(r => {
         const f = r.exams?.find(e => normName(e.param) === normName(pName));
@@ -649,7 +615,7 @@ function rangeText(p) {
       return;
     }
     tempExamsList.innerHTML = tempExams.map((e, idx) => {
-      const p = getParamConfig(e.param);
+      const p = dict.find(d => d.name === e.param);
       const unit = p?.unit || '';
       return `
         <div class="temp-row">
@@ -911,7 +877,232 @@ function rangeText(p) {
     };
   }
 
-  // -------------------- TOOLS (BACKUP) --------------------
+  
+  // -------------------- SECURITY (PIN / FaceID placeholder) --------------------
+  // Logica minimale e robusta. Non tocca import/export né i dati clinici.
+  const LS_LOCK_ENABLED = 'ime_lock_enabled_v1';
+  const LS_PIN_HASH = 'ime_pin_hash_v1';
+  const LS_BIO_ENABLED = 'ime_bio_enabled_v1';
+
+  const lockEnabledToggle = document.getElementById('lockEnabledToggle');
+  const pinNew = document.getElementById('pinNew');
+  const pinConfirm = document.getElementById('pinConfirm');
+  const btnSavePin = document.getElementById('btnSavePin');
+  const btnSetupBiometric = document.getElementById('btnSetupBiometric');
+  const btnDisableBiometric = document.getElementById('btnDisableBiometric');
+  const securityStatus = document.getElementById('securityStatus');
+
+  function setSecurityStatus(msg = '', tone = 'neutral') {
+    if (!securityStatus) return;
+    securityStatus.textContent = msg;
+    securityStatus.style.color =
+      tone === 'ok' ? 'var(--success)' :
+      tone === 'bad' ? 'var(--danger)' :
+      'var(--gray)';
+  }
+
+  function getLockEnabled() { return localStorage.getItem(LS_LOCK_ENABLED) === '1'; }
+  function setLockEnabled(v) { localStorage.setItem(LS_LOCK_ENABLED, v ? '1' : '0'); }
+  function hasPin() { return !!localStorage.getItem(LS_PIN_HASH); }
+
+  async function sha256(text) {
+    try {
+      if (window.crypto?.subtle) {
+        const enc = new TextEncoder();
+        const buf = await window.crypto.subtle.digest('SHA-256', enc.encode(text));
+        return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+      }
+    } catch (_) {}
+    // fallback (non perfetto ma evita rotture su device vecchi)
+    let h = 0;
+    for (let i = 0; i < text.length; i++) { h = ((h << 5) - h) + text.charCodeAt(i); h |= 0; }
+    return `h${Math.abs(h)}`;
+  }
+
+  async function savePin() {
+    const a = (pinNew?.value || '').trim();
+    const b = (pinConfirm?.value || '').trim();
+
+    if (!a || !b) { setSecurityStatus('Inserisci e conferma il PIN.', 'bad'); return; }
+    if (a !== b) { setSecurityStatus('I PIN non coincidono.', 'bad'); return; }
+    if (!/^[0-9]{4,8}$/.test(a)) { setSecurityStatus('PIN non valido: usa 4–8 cifre.', 'bad'); return; }
+
+    const hash = await sha256(a);
+    localStorage.setItem(LS_PIN_HASH, hash);
+    setLockEnabled(true);
+
+    if (lockEnabledToggle) lockEnabledToggle.checked = true;
+    if (pinNew) pinNew.value = '';
+    if (pinConfirm) pinConfirm.value = '';
+
+    setSecurityStatus('PIN salvato ✅', 'ok');
+    syncBiometricButtons();
+
+// --------- Lock screen (blocco effettivo all'avvio) ---------
+// Nota: solo front-end. Serve PWA/HTTPS per biometria reale.
+const LS_UNLOCKED = 'ime_unlocked_session_v1';
+const lockScreen = document.getElementById('lockScreen');
+const lockPinInput = document.getElementById('lockPinInput');
+const lockError = document.getElementById('lockError');
+const btnUnlock = document.getElementById('btnUnlock');
+const btnUnlockBio = document.getElementById('btnUnlockBiometric');
+
+function isUnlocked() {
+  return sessionStorage.getItem(LS_UNLOCKED) === '1';
+}
+function setUnlocked(v) {
+  sessionStorage.setItem(LS_UNLOCKED, v ? '1' : '0');
+}
+
+function lockShow(msg = '') {
+  if (!lockScreen) return;
+  lockScreen.style.display = 'flex';
+  if (lockError) lockError.textContent = msg;
+  if (lockPinInput) {
+    lockPinInput.value = '';
+    // focus leggermente differito per iOS
+    setTimeout(() => lockPinInput.focus(), 50);
+  }
+}
+function lockHide() {
+  if (!lockScreen) return;
+  lockScreen.style.display = 'none';
+  if (lockError) lockError.textContent = '';
+}
+
+async function verifyPinInput() {
+  const enabled = getLockEnabled();
+  if (!enabled) return true;
+  const stored = localStorage.getItem(LS_PIN_HASH);
+  if (!stored) {
+    lockShow('Imposta un PIN in Config → Sicurezza.');
+    return false;
+  }
+  const pin = (lockPinInput?.value || '').trim();
+  const hash = await sha256(pin);
+  const ok = hash === stored;
+  if (!ok) {
+    lockShow('PIN errato.');
+    return false;
+  }
+  setUnlocked(true);
+  lockHide();
+  return true;
+}
+
+function biometricAvailable() {
+  // Placeholder: mostriamo il tasto solo se “attiva” + contesto sicuro.
+  // L’unlock reale via WebAuthn si può aggiungere più avanti.
+  const flag = localStorage.getItem(LS_BIO_ENABLED) === '1';
+  const secure = Boolean(window.isSecureContext);
+  return flag && secure;
+}
+
+async function unlockWithBiometricPlaceholder() {
+  // Per ora: se l'utente ha flag biometria ON, consideriamo lo sblocco riuscito.
+  // (Upgrade futuro: WebAuthn con userVerification='required')
+  if (!biometricAvailable()) return false;
+  return true;
+}
+
+function enforceLockIfNeeded(reason = '') {
+  const enabled = getLockEnabled();
+  if (!enabled) { lockHide(); return; }
+  if (!hasPin()) { lockHide(); return; }
+  if (!isUnlocked()) lockShow(reason);
+}
+
+if (btnUnlock) btnUnlock.addEventListener('click', () => { verifyPinInput(); });
+if (lockPinInput) lockPinInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') verifyPinInput(); });
+
+if (btnUnlockBio) {
+  btnUnlockBio.style.display = biometricAvailable() ? 'block' : 'none';
+  btnUnlockBio.addEventListener('click', async () => {
+    const ok = await unlockWithBiometricPlaceholder();
+    if (ok) {
+      setUnlocked(true);
+      lockHide();
+    } else {
+      lockShow('Sblocco biometrico non disponibile.');
+    }
+  });
+}
+
+// All'avvio: se blocco attivo, mostra subito la schermata di sblocco.
+// Importante: non persistiamo lo sblocco, resta solo per la sessione.
+if (getLockEnabled() && hasPin()) {
+  setUnlocked(false);
+  enforceLockIfNeeded();
+}
+
+// Quando l'app va in background, richiedi di nuovo il PIN al ritorno.
+document.addEventListener('visibilitychange', () => {
+  if (!getLockEnabled() || !hasPin()) return;
+  if (document.hidden) {
+    setUnlocked(false);
+  } else {
+    enforceLockIfNeeded();
+  }
+});
+
+
+// Se disattivi il blocco mentre sei nella schermata di lock, chiudila subito.
+if (lockEnabledToggle) {
+  lockEnabledToggle.addEventListener('change', () => {
+    if (!getLockEnabled()) {
+      setUnlocked(true);
+      lockHide();
+    }
+    if (btnUnlockBio) btnUnlockBio.style.display = biometricAvailable() ? 'block' : 'none';
+  });
+}
+  }
+
+  function syncBiometricButtons() {
+    const enabled = localStorage.getItem(LS_BIO_ENABLED) === '1';
+    const canShow = hasPin();
+    if (btnSetupBiometric) btnSetupBiometric.style.display = (canShow && !enabled) ? 'block' : 'none';
+    if (btnDisableBiometric) btnDisableBiometric.style.display = (canShow && enabled) ? 'block' : 'none';
+  }
+
+  // Init toggle + handlers
+  if (lockEnabledToggle) {
+    lockEnabledToggle.checked = getLockEnabled();
+    lockEnabledToggle.addEventListener('change', () => {
+      const want = lockEnabledToggle.checked;
+      if (want && !hasPin()) {
+        lockEnabledToggle.checked = false;
+        setLockEnabled(false);
+        setSecurityStatus('Prima salva un PIN per attivare il blocco.', 'bad');
+        return;
+      }
+      setLockEnabled(want);
+      setSecurityStatus(want ? 'Blocco attivo.' : 'Blocco disattivato.', want ? 'ok' : 'neutral');
+      syncBiometricButtons();
+    });
+  }
+
+  if (btnSavePin) btnSavePin.addEventListener('click', () => { savePin(); });
+
+  // “Biometria” placeholder: salviamo solo il flag (FaceID reale via WebAuthn sarebbe un upgrade separato).
+  if (btnSetupBiometric) btnSetupBiometric.addEventListener('click', () => {
+    if (!hasPin()) { setSecurityStatus('Prima salva un PIN.', 'bad'); return; }
+    localStorage.setItem(LS_BIO_ENABLED, '1');
+    setSecurityStatus('Biometria segnata come attiva ✅', 'ok');
+    syncBiometricButtons();
+  });
+  if (btnDisableBiometric) btnDisableBiometric.addEventListener('click', () => {
+    localStorage.setItem(LS_BIO_ENABLED, '0');
+    setSecurityStatus('Biometria disattivata.', 'neutral');
+    syncBiometricButtons();
+  });
+
+  if (securityStatus) {
+    setSecurityStatus(hasPin() ? (getLockEnabled() ? 'Blocco attivo.' : 'Blocco disattivato.') : 'Imposta un PIN per proteggere l’app.');
+  }
+  syncBiometricButtons();
+
+// -------------------- TOOLS (BACKUP) --------------------
   const toolsModal = document.getElementById('toolsModal');
   const btnTools = document.getElementById('btnTools');
   const closeToolsBtn = document.querySelector('.close-tools');
@@ -954,8 +1145,7 @@ function rangeText(p) {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const raw = String(reader.result || '').replace(/^\uFEFF/, '');
-        const payload = JSON.parse(raw);
+        const payload = JSON.parse(String(reader.result || ''));
         if (payload?.dict && payload?.reports) {
           dict = (payload.dict || []).map(p => ({ decimals: 1, direction: 'range', category: 'Altro', ...p }));
           reports = (payload.reports || []).map(r => ({ ...r, id: r.id || uid() }));
