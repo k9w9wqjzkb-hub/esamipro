@@ -39,7 +39,6 @@ document.addEventListener('DOMContentLoaded', () => {
   let tChart = null;
 
   const mainAddBtn = document.getElementById('mainAddBtn');
-  const historyAddBtn = document.getElementById('historyAddBtn');
 
   // -------------------- PWA --------------------
   try {
@@ -49,303 +48,19 @@ document.addEventListener('DOMContentLoaded', () => {
   } catch (_) {
     // no-op
   }
-  // -------------------- SECURITY (PIN / Face ID) --------------------
-  const LS_LOCK = 'lock_settings_v1';
-  const lockEls = {
-    screen: document.getElementById('lockScreen'),
-    pinInput: document.getElementById('lockPinInput'),
-    btnUnlock: document.getElementById('btnUnlock'),
-    btnBioUnlock: document.getElementById('btnUnlockBiometric'),
-    err: document.getElementById('lockError'),
-
-    toggle: document.getElementById('lockEnabledToggle'),
-    pinNew: document.getElementById('pinNew'),
-    pinConfirm: document.getElementById('pinConfirm'),
-    btnSavePin: document.getElementById('btnSavePin'),
-    btnSetupBio: document.getElementById('btnSetupBiometric'),
-    btnDisableBio: document.getElementById('btnDisableBiometric'),
-    status: document.getElementById('securityStatus'),
-  };
-
-  function loadLockSettings() {
-    return safeJSON(localStorage.getItem(LS_LOCK), {
-      enabled: false,
-      pinSaltB64: null,
-      pinHashB64: null,
-      bioEnabled: false,
-      credIdB64: null,
-    });
-  }
-  function saveLockSettings(s) {
-    localStorage.setItem(LS_LOCK, JSON.stringify(s));
-  }
-
-  function isBiometricSupported() {
-    return Boolean(window.PublicKeyCredential && window.isSecureContext);
-  }
-
-  function b64ToBuf(b64) {
-    const bin = atob(b64);
-    const buf = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
-    return buf.buffer;
-  }
-  function bufToB64(buf) {
-    const bytes = new Uint8Array(buf);
-    let bin = '';
-    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-    return btoa(bin);
-  }
-  function randBuf(n = 32) {
-    const a = new Uint8Array(n);
-    crypto.getRandomValues(a);
-    return a.buffer;
-  }
-
-  async function hashPinPBKDF2(pin, saltBuf) {
-    const enc = new TextEncoder();
-    const keyMaterial = await crypto.subtle.importKey(
-      'raw',
-      enc.encode(pin),
-      { name: 'PBKDF2' },
-      false,
-      ['deriveBits']
-    );
-    const bits = await crypto.subtle.deriveBits(
-      { name: 'PBKDF2', hash: 'SHA-256', salt: saltBuf, iterations: 120000 },
-      keyMaterial,
-      256
-    );
-    return bits;
-  }
-
-  function lockShow(message) {
-    if (!lockEls.screen) return;
-    lockEls.screen.style.display = 'flex';
-    lockEls.screen.setAttribute('aria-hidden', 'false');
-    if (lockEls.err) {
-      if (message) {
-        lockEls.err.style.display = 'block';
-        lockEls.err.textContent = message;
-      } else {
-        lockEls.err.style.display = 'none';
-        lockEls.err.textContent = '';
-      }
-    }
-    if (lockEls.pinInput) {
-      lockEls.pinInput.value = '';
-      setTimeout(() => lockEls.pinInput.focus(), 50);
-    }
-  }
-
-  function lockHide() {
-    if (!lockEls.screen) return;
-    lockEls.screen.style.display = 'none';
-    lockEls.screen.setAttribute('aria-hidden', 'true');
-  }
-
-  function setUnlocked(val) {
-    sessionStorage.setItem('lock_unlocked', val ? '1' : '0');
-  }
-  function isUnlocked() {
-    return sessionStorage.getItem('lock_unlocked') === '1';
-  }
-
-  async function verifyPin(pin, settings) {
-    if (!settings?.pinSaltB64 || !settings?.pinHashB64) return false;
-    const salt = b64ToBuf(settings.pinSaltB64);
-    const hash = await hashPinPBKDF2(pin, salt);
-    return bufToB64(hash) === settings.pinHashB64;
-  }
-
-  function updateSecurityUI(settings) {
-    if (!lockEls.toggle) return;
-    lockEls.toggle.checked = Boolean(settings.enabled);
-
-    const hasPin = Boolean(settings.pinHashB64 && settings.pinSaltB64);
-    const bioOk = isBiometricSupported();
-
-    if (lockEls.btnSetupBio) lockEls.btnSetupBio.style.display = (bioOk && hasPin && !settings.bioEnabled) ? 'block' : 'none';
-    if (lockEls.btnDisableBio) lockEls.btnDisableBio.style.display = (settings.bioEnabled) ? 'block' : 'none';
-    if (lockEls.btnBioUnlock) lockEls.btnBioUnlock.style.display = (settings.enabled && settings.bioEnabled && bioOk) ? 'block' : 'none';
-
-    if (lockEls.status) {
-      const parts = [];
-      parts.push(`Blocco: ${settings.enabled ? 'ATTIVO' : 'DISATTIVATO'}`);
-      parts.push(`PIN: ${hasPin ? 'impostato' : 'non impostato'}`);
-      if (bioOk) parts.push(`Biometria: ${settings.bioEnabled ? 'attiva' : 'non attiva'}`);
-      else parts.push('Biometria: non supportata (serve HTTPS / PWA)');
-      lockEls.status.textContent = parts.join(' • ');
-    }
-  }
-
-  async function setupOrChangePin() {
-    const pin1 = (lockEls.pinNew?.value || '').trim();
-    const pin2 = (lockEls.pinConfirm?.value || '').trim();
-    if (pin1.length < 4) {
-      alert('Il PIN deve avere almeno 4 cifre.');
-      return;
-    }
-    if (pin1 !== pin2) {
-      alert('I due PIN non coincidono.');
-      return;
-    }
-
-    const settings = loadLockSettings();
-    const salt = randBuf(16);
-    const hash = await hashPinPBKDF2(pin1, salt);
-
-    settings.pinSaltB64 = bufToB64(salt);
-    settings.pinHashB64 = bufToB64(hash);
-    settings.enabled = true;
-    settings.bioEnabled = false;
-    settings.credIdB64 = null;
-
-    saveLockSettings(settings);
-    if (lockEls.pinNew) lockEls.pinNew.value = '';
-    if (lockEls.pinConfirm) lockEls.pinConfirm.value = '';
-    updateSecurityUI(settings);
-    alert('PIN salvato. Il blocco è ora attivo.');
-  }
-
-  async function setupBiometric() {
-    const settings = loadLockSettings();
-    if (!isBiometricSupported()) {
-      alert('Biometria non supportata qui. Serve HTTPS o app installata (PWA).');
-      return;
-    }
-    if (!settings.pinHashB64) {
-      alert('Imposta prima un PIN.');
-      return;
-    }
-
-    try {
-      const userId = new Uint8Array(16);
-      crypto.getRandomValues(userId);
-
-      const cred = await navigator.credentials.create({
-        publicKey: {
-          challenge: new Uint8Array(randBuf(32)),
-          rp: { name: 'iMieiEsami Pro' },
-          user: { id: userId, name: 'utente', displayName: 'Utente' },
-          pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
-          authenticatorSelection: {
-            authenticatorAttachment: 'platform',
-            userVerification: 'required'
-          },
-          timeout: 60000,
-          attestation: 'none',
-        }
-      });
-
-      if (!cred) throw new Error('Credenziale non creata');
-      settings.bioEnabled = true;
-      settings.credIdB64 = bufToB64(cred.rawId);
-      saveLockSettings(settings);
-      updateSecurityUI(settings);
-      alert('Face ID / Touch ID attivato.');
-    } catch (e) {
-      console.warn(e);
-      alert('Non è stato possibile attivare la biometria.');
-    }
-  }
-
-  function disableBiometric() {
-    const settings = loadLockSettings();
-    settings.bioEnabled = false;
-    settings.credIdB64 = null;
-    saveLockSettings(settings);
-    updateSecurityUI(settings);
-  }
-
-  async function unlockWithBiometric() {
-    const settings = loadLockSettings();
-    if (!settings.bioEnabled || !settings.credIdB64) return false;
-    if (!isBiometricSupported()) return false;
-
-    try {
-      const assertion = await navigator.credentials.get({
-        publicKey: {
-          challenge: new Uint8Array(randBuf(32)),
-          allowCredentials: [{ type: 'public-key', id: b64ToBuf(settings.credIdB64) }],
-          userVerification: 'required',
-          timeout: 60000
-        }
-      });
-      return Boolean(assertion);
-    } catch (e) {
-      console.warn(e);
-      return false;
-    }
-  }
-
-  async function handleUnlock() {
-    const settings = loadLockSettings();
-    if (!settings.pinHashB64) {
-      lockShow('Imposta un PIN in Config → Sicurezza.');
-      return;
-    }
-
-    const pin = (lockEls.pinInput?.value || '').trim();
-    const ok = await verifyPin(pin, settings);
-    if (!ok) {
-      lockShow('PIN errato.');
-      return;
-    }
-    setUnlocked(true);
-    lockHide();
-  }
-
-  async function initSecurity() {
-    const settings = loadLockSettings();
-    updateSecurityUI(settings);
-
-    if (lockEls.toggle) {
-      lockEls.toggle.onchange = () => {
-        const s = loadLockSettings();
-        s.enabled = Boolean(lockEls.toggle.checked);
-        if (s.enabled && !s.pinHashB64) {
-          alert('Prima imposta un PIN.');
-          s.enabled = false;
-          lockEls.toggle.checked = false;
-        }
-        saveLockSettings(s);
-        updateSecurityUI(s);
-      };
-    }
-    if (lockEls.btnSavePin) lockEls.btnSavePin.onclick = () => setupOrChangePin();
-    if (lockEls.btnSetupBio) lockEls.btnSetupBio.onclick = () => setupBiometric();
-    if (lockEls.btnDisableBio) lockEls.btnDisableBio.onclick = () => disableBiometric();
-
-    if (lockEls.btnUnlock) lockEls.btnUnlock.onclick = () => handleUnlock();
-    if (lockEls.pinInput) lockEls.pinInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleUnlock(); });
-
-    if (lockEls.btnBioUnlock) {
-      lockEls.btnBioUnlock.onclick = async () => {
-        const ok = await unlockWithBiometric();
-        if (ok) { setUnlocked(true); lockHide(); }
-        else lockShow('Sblocco biometrico non riuscito.');
-      };
-    }
-
-    document.addEventListener('visibilitychange', () => {
-      const s = loadLockSettings();
-      if (!s.enabled) return;
-      if (document.hidden) setUnlocked(false);
-      else if (!isUnlocked()) lockShow();
-    });
-
-    if (settings.enabled && !isUnlocked()) {
-      lockShow();
-    }
-  }
-
 
   // -------------------- ROUTING (SPA) --------------------
   function showView(target) {
     document.querySelectorAll('.app-view').forEach(v => v.style.display = 'none');
     const targetView = document.getElementById(`view-${target}`);
     if (targetView) targetView.style.display = 'block';
+
+    // animazione ingresso vista (native feel)
+    if (targetView) {
+      targetView.classList.remove('view-enter');
+      void targetView.offsetWidth;
+      targetView.classList.add('view-enter');
+    }
 
     document.querySelectorAll('.tab-item').forEach(t => t.classList.toggle('active', t.dataset.view === target));
     if (mainAddBtn) mainAddBtn.style.display = (target === 'dashboard') ? 'block' : 'none';
@@ -374,9 +89,38 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   }
 
-  function toNum(v) {
-    const n = Number(v);
+  function parseNum(v) {
+    if (v === null || v === undefined) return null;
+    const s = String(v).trim();
+    if (!s) return null;
+    // supporta virgola come separatore decimale
+    const cleaned = s.replace(/,/g, '.');
+    const n = Number(cleaned);
     return Number.isFinite(n) ? n : null;
+  }
+
+  function toNum(v) {
+    return parseNum(v);
+  }
+
+  function normName(str) {
+    return String(str ?? '')
+      .toUpperCase()
+      .replace(/[_]+/g, ' ')
+      .replace(/[.]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function getParamConfig(name) {
+    const key = normName(name);
+    return dict.find(p => normName(p.name) === key) || null;
+  }
+
+  function stepFromDecimals(dec) {
+    const d = Number(dec);
+    if (!Number.isFinite(d) || d <= 0) return 'any';
+    return String(Math.pow(10, -d));
   }
 
   function clamp(n, a, b) {
@@ -400,6 +144,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const d = clamp(Number(decimals ?? 1), 0, 4);
     return Number(val).toFixed(d).replace(/\.0+$/, '').replace(/(\.[0-9]*?)0+$/, '$1');
   }
+
+  function formatRange(p) {
+    if (!p) return 'Range: ---';
+    const d = clamp(Number(p.decimals ?? 1), 0, 4);
+    const min = (p.min === '' || p.min === undefined) ? null : toNum(p.min);
+    const max = (p.max === '' || p.max === undefined) ? null : toNum(p.max);
+
+    if (min === null && max === null) return 'Range: ---';
+    if (min !== null && max !== null) return `Range: ${fmt(min, d)}-${fmt(max, d)} ${p.unit || ''}`.trim();
+    if (min !== null) return `Range: ≥ ${fmt(min, d)} ${p.unit || ''}`.trim();
+    return `Range: ≤ ${fmt(max, d)} ${p.unit || ''}`.trim();
+  }
+
 
   function statusForValue(p, v) {
     const min = (p.min === '' || p.min === undefined) ? null : toNum(p.min);
@@ -449,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function getAllValuesForParam(paramName) {
     const pts = [];
     for (const r of reports) {
-      const row = r.exams?.find(e => e.param === paramName);
+      const row = r.exams?.find(e => normName(e.param) === normName(paramName));
       const v = row ? toNum(row.val) : null;
       if (v !== null) pts.push({ date: r.date, val: v, reportId: r.id });
     }
@@ -555,7 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="card-white" style="display:flex; justify-content:space-between; align-items:center; border-left:5px solid var(--danger); margin-bottom:8px">
               <div>
                 <b>${escapeHTML(p.name)}</b><br>
-                <small style="color:var(--gray)">Range: ${p.min ?? '—'}-${p.max ?? '—'} ${escapeHTML(p.unit || '')}</small><br>
+                <small style="color:var(--gray)">${formatRange(p)}</small><br>
                 <small style="color:var(--gray); font-weight:800">Severità: ${sev.label}${dTxt}</small>
               </div>
               <div style="text-align:right; color:var(--danger)">
@@ -614,7 +371,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const pConfig = dict.find(d => d.name === pName);
       const pts = [];
       reports.forEach(r => {
-        const f = r.exams?.find(e => e.param === pName);
+        const f = r.exams?.find(e => normName(e.param) === normName(pName));
         if (f && toNum(f.val) !== null) pts.push({ x: r.date, y: toNum(f.val) });
       });
       pts.sort((a, b) => new Date(a.x) - new Date(b.x));
@@ -680,7 +437,6 @@ document.addEventListener('DOMContentLoaded', () => {
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          animation: { duration: 650, easing: 'easeOutQuart' },
           plugins: {
             legend: { display: false },
             tooltip: {
@@ -736,7 +492,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const notes = (r.notes || '').trim();
 
       const rows = (r.exams || []).map(ex => {
-        const p = dict.find(d => d.name === ex.param) || { name: ex.param, unit: '', min: null, max: null, decimals: 1 };
+        const p = getParamConfig(ex.param) || { name: ex.param, unit: '', min: null, max: null, decimals: 1 };
         const v = toNum(ex.val);
         const st = statusForValue(p, v);
         const sev = severityForValue(p, v);
@@ -751,13 +507,15 @@ document.addEventListener('DOMContentLoaded', () => {
           dTxt = `Δ ${d > 0 ? '+' : ''}${fmt(d, p.decimals)}${pct === null ? '' : ` (${fmt(pct, 1)}%)`}`;
         }
 
-        const badge = st.out ? `<span class="badge badge-danger">${st.state === 'HIGH' ? 'ALTO' : 'BASSO'} • ${sev.label}</span>` : `<span class="badge badge-ok">OK</span>`;
+        const badge = st.out
+        ? `<span class="badge ${sev.level === 'light' ? 'badge-warn' : 'badge-danger'}">${st.state === 'HIGH' ? 'ALTO' : 'BASSO'} • ${sev.label}</span>`
+        : `<span class="badge badge-ok">OK</span>`;
         return `
           <div class="hist-row">
             <div style="display:flex; align-items:center; justify-content:space-between; gap:10px">
               <div style="min-width:0">
                 <b style="font-size:12px">${escapeHTML(p.name)}</b>
-                <div style="font-size:11px; color:var(--gray)">Range: ${p.min ?? '—'}-${p.max ?? '—'} ${escapeHTML(p.unit || '')}</div>
+                <div style="font-size:11px; color:var(--gray)">${formatRange(p)}</div>
               </div>
               <div style="text-align:right; white-space:nowrap">
                 <div style="font-weight:900">${v !== null ? fmt(v, p.decimals) : '--'} <span style="font-size:11px; font-weight:600">${escapeHTML(p.unit || '')}</span></div>
@@ -824,10 +582,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const examValue = document.getElementById('examValue');
   const btnAddRow = document.getElementById('btnAddRow');
 
+
+  if (examParamSelect) examParamSelect.addEventListener('change', syncExamValueStep);
+
   function openExamModal() {
     if (!examModal) return;
     examModal.style.display = 'block';
     syncParamSelect();
+    syncExamValueStep();
     renderTempList();
   }
 
@@ -844,6 +606,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!examParamSelect) return;
     examParamSelect.innerHTML = dict.map(p => `<option value="${escapeAttr(p.name)}">${escapeHTML(p.name)}</option>`).join('');
   }
+
+  function syncExamValueStep() {
+    if (!examValue || !examParamSelect) return;
+    const p = getParamConfig(examParamSelect.value);
+    const d = p?.decimals ?? 1;
+    examValue.step = stepFromDecimals(d);
+    // su iOS aiuta avere inputmode decimale
+    examValue.inputMode = 'decimal';
+  }
+
 
   function renderTempList() {
     if (!tempExamsList) return;
@@ -874,11 +646,6 @@ document.addEventListener('DOMContentLoaded', () => {
     editingReportId = null;
     tempExams = [];
     if (reportForm) reportForm.reset();
-    openExamModal();
-  };
-
-  // “+” nello Storico (in alto)
-  if (historyAddBtn) historyAddBtn.onclick = () => {
     openExamModal();
   };
   if (closeBtn) closeBtn.onclick = closeExamModal;
@@ -949,6 +716,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const confDecimals = document.getElementById('confDecimals');
   const confDirection = document.getElementById('confDirection');
 
+
+  // Step dinamico per supportare decimali (es. 0,026) e evitare arrotondamenti su iOS
+  function syncConfigSteps() {
+    const d = confDecimals?.value ?? 1;
+    const step = stepFromDecimals(d);
+    if (confMin) confMin.step = step;
+    if (confMax) confMax.step = step;
+  }
+  if (confDecimals) {
+    confDecimals.addEventListener('change', syncConfigSteps);
+    confDecimals.addEventListener('input', syncConfigSteps);
+  }
+  // Imposta subito
+  syncConfigSteps();
+
   function renderDictList() {
     const host = document.getElementById('dictionaryList');
     if (!host) return;
@@ -965,7 +747,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="card-white" style="display:flex; justify-content:space-between; align-items:center; gap:10px">
           <div style="min-width:0">
             <b>${escapeHTML(p.name)}</b>
-            <div style="font-size:12px; color:var(--gray)">${escapeHTML(p.category || 'Altro')} • Range: ${p.min ?? '—'}-${p.max ?? '—'} ${escapeHTML(p.unit || '')}</div>
+            <div style="font-size:12px; color:var(--gray)">${escapeHTML(p.category || 'Altro')} • ${formatRange(p)}</div>
           </div>
           <div style="display:flex; gap:10px; flex-shrink:0">
             <button class="icon-btn" title="Modifica" onclick="openEditDict(${i})"><i class="fas fa-pen"></i></button>
@@ -1032,6 +814,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const editDictCategory = document.getElementById('editDictCategory');
   const editDictDecimals = document.getElementById('editDictDecimals');
   const editDictDirection = document.getElementById('editDictDirection');
+
+
+  function syncEditSteps() {
+    const d = editDictDecimals?.value ?? 1;
+    const step = stepFromDecimals(d);
+    if (editDictMin) editDictMin.step = step;
+    if (editDictMax) editDictMax.step = step;
+  }
+  if (editDictDecimals) {
+    editDictDecimals.addEventListener('change', syncEditSteps);
+    editDictDecimals.addEventListener('input', syncEditSteps);
+  }
 
   function openEditDictModal() {
     if (editDictModal) editDictModal.style.display = 'block';
@@ -1196,8 +990,5 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // -------------------- INIT --------------------
-  (async () => {
-    await initSecurity();
-    showView('dashboard');
-  })();
+  showView('dashboard');
 });
