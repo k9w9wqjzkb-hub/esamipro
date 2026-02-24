@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>iMieiEsami Pro</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
@@ -11,10 +11,7 @@
 <body>
     <header class="navbar">
         <h1>I Miei Esami</h1>
-        <div id="mainAddBtn" class="navbar-right">
-            <i class="fas fa-plus-circle"></i>
-        </div>
-    </header>
+</header>
 
     <main class="main-content">
         <div id="view-dashboard" class="app-view">
@@ -49,7 +46,7 @@
         </div>
 
         <div id="view-history" class="app-view" style="display:none">
-            <h2 class="section-title">Storico Referti</h2>
+            <div class="section-head"><h2 class="section-title" style="margin:0">Storico Referti</h2><button id="historyAddBtn" class="history-add-btn" aria-label="Aggiungi referto"><i class="fas fa-plus"></i></button></div>
             <div id="historyList"></div>
         </div>
 
@@ -84,26 +81,78 @@
     </main>
 
     <div id="toolsModal" class="modal">
-        <div class="modal-content">
-            <span class="close-tools" style="float:right; cursor:pointer; font-size:24px; color:var(--gray)">&times;</span>
-            <h3 style="margin-top:0">Gestione Dati</h3>
-            <p style="font-size: 13px; color: var(--gray); margin-bottom: 20px;">Esporta i tuoi dati per sicurezza o importali da un backup precedente.</p>
-            
-            <button onclick="exportJSON()" class="button secondary-button" style="text-align: left;">
-                <i class="fas fa-file-download" style="margin-right: 10px;"></i> Backup Completo (JSON)
+    <div class="modal-content">
+        <div class="modal-header">
+            <div>
+                <h3 class="modal-title">Gestione dati</h3>
+                <p class="modal-subtitle">Backup, ripristino ed esportazione.</p>
+            </div>
+            <button type="button" class="modal-close close-tools" aria-label="Chiudi">&times;</button>
+        </div>
+
+        <div class="modal-section">
+            <div class="modal-section-title">
+                <span class="modal-icon"><i class="fas fa-database"></i></span>
+                <span>Dati</span>
+            </div>
+
+            <button onclick="exportJSON()" class="button secondary-button modal-action-btn">
+                <span class="modal-action-left"><i class="fas fa-file-download"></i> Backup completo (JSON)</span>
+                <i class="fas fa-chevron-right modal-action-right"></i>
             </button>
-            
-            <button onclick="document.getElementById('importFile').click()" class="button secondary-button" style="text-align: left;">
-                <i class="fas fa-file-upload" style="margin-right: 10px;"></i> Ripristina Backup
+
+            <button onclick="document.getElementById('importFile').click()" class="button secondary-button modal-action-btn">
+                <span class="modal-action-left"><i class="fas fa-file-upload"></i> Ripristina backup</span>
+                <i class="fas fa-chevron-right modal-action-right"></i>
             </button>
-            
-            <button onclick="exportCSV()" class="button secondary-button" style="text-align: left;">
-                <i class="fas fa-file-csv" style="margin-right: 10px;"></i> Esporta per Excel (CSV)
+
+            <button onclick="exportCSV()" class="button secondary-button modal-action-btn">
+                <span class="modal-action-left"><i class="fas fa-file-csv"></i> Esporta per Excel (CSV)</span>
+                <i class="fas fa-chevron-right modal-action-right"></i>
             </button>
-            
-            <input type="file" id="importFile" style="display:none" onchange="importJSON(event)" accept=".json">
+
+            <input type="file" id="importFile" class="visually-hidden" onchange="importJSON(event)" accept=".json">
+            <small class="modal-hint">Suggerimento: salva un backup prima di aggiornare l’app o cambiare telefono.</small>
+        </div>
+
+        <div class="modal-divider"></div>
+
+        <div class="modal-section">
+            <div class="modal-section-title">
+                <span class="modal-icon"><i class="fas fa-shield-halved"></i></span>
+                <span>Sicurezza</span>
+            </div>
+
+            <div class="security-row">
+                <div>
+                    <div class="security-title">Blocco app</div>
+                    <div class="security-sub">Richiede PIN (e opzionalmente Face ID/Touch ID) all’apertura.</div>
+                </div>
+                <label class="switch" aria-label="Abilita blocco app">
+                    <input type="checkbox" id="lockEnabledToggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div class="input-row" style="display:flex; gap:10px; margin-top:12px">
+                <input type="password" id="pinNew" placeholder="Nuovo PIN" inputmode="numeric" autocomplete="new-password">
+                <input type="password" id="pinConfirm" placeholder="Conferma PIN" inputmode="numeric" autocomplete="new-password">
+            </div>
+            <button type="button" id="btnSavePin" class="button primary-button" style="margin-top:10px">Salva / Cambia PIN</button>
+
+            <div style="display:flex; gap:10px; margin-top:10px">
+                <button type="button" id="btnSetupBiometric" class="button secondary-button" style="flex:1; display:none">
+                    <i class="fas fa-face-smile" style="margin-right:8px"></i> Attiva Face ID / Touch ID
+                </button>
+                <button type="button" id="btnDisableBiometric" class="button secondary-button" style="flex:1; display:none">
+                    Disattiva biometria
+                </button>
+            </div>
+
+            <small id="securityStatus" class="modal-hint" style="display:block; margin-top:10px;"></small>
         </div>
     </div>
+</div>
 
     <div id="editDictModal" class="modal">
         <div class="modal-content">
@@ -175,10 +224,12 @@
                 <div id="tempExamsList" class="temp-list-container" style="margin: 15px 0; min-height: 40px;">
                     </div>
 
+                <div class="form-divider"></div>
+
                 <div class="add-row-box" style="background: var(--ios-bg); padding: 15px; border-radius: 12px;">
                     <label class="label-small">AGGIUNGI PARAMETRO</label>
                     <select id="examParamSelect" class="ios-select"></select>
-                    <input type="number" id="examValue" step="0.1" placeholder="Valore" style="margin-top:8px">
+                    <input type="number" id="examValue" step="any" placeholder="Valore" style="margin-top:8px" inputmode="decimal">
                     <button type="button" id="btnAddRow" class="button secondary-button" style="margin-top: 10px; background: white;">+ Inserisci Riga</button>
                 </div>
                 
