@@ -147,38 +147,6 @@
 
       <div id="dictionaryList"></div>
 
-      <!-- Sicurezza -->
-      <h2 class="section-title" style="margin-top:28px">Sicurezza</h2>
-      <div class="grouped-section">
-        <div class="grouped-row">
-          <div class="grouped-row-icon" style="background:var(--c-blue)"><i class="fas fa-lock"></i></div>
-          <div style="flex:1">
-            <div style="font-size:15px;font-weight:600">Blocco con PIN</div>
-            <div style="font-size:12px;color:var(--label2)">Richiedi PIN all'apertura</div>
-          </div>
-          <label class="ios-toggle">
-            <input type="checkbox" id="lockEnabledToggle">
-            <div class="ios-toggle-track"></div>
-            <div class="ios-toggle-thumb"></div>
-          </label>
-        </div>
-        <div class="grouped-row" style="flex-direction:column;align-items:stretch;gap:10px">
-          <div style="display:flex;gap:10px">
-            <input type="password" id="pinNew" placeholder="Nuovo PIN (4–8 cifre)" inputmode="numeric" style="flex:1">
-            <input type="password" id="pinConfirm" placeholder="Conferma PIN" inputmode="numeric" style="flex:1">
-          </div>
-          <button id="btnSavePin" class="button primary-button" style="margin:0">Salva PIN</button>
-          <div id="securityStatus" style="font-size:12px;text-align:center;min-height:16px;color:var(--label2)"></div>
-        </div>
-        <div class="grouped-row" id="biometricRows" style="display:none">
-          <div class="grouped-row-icon" style="background:var(--c-green)"><i class="fas fa-fingerprint"></i></div>
-          <div style="flex:1">
-            <div style="font-size:15px;font-weight:600">Face ID / Touch ID</div>
-          </div>
-          <button id="btnSetupBiometric" class="chip-btn" style="display:none">Attiva</button>
-          <button id="btnDisableBiometric" class="chip-btn" style="display:none;color:var(--c-red)">Disattiva</button>
-        </div>
-      </div>
     </div>
 
   </main>
@@ -195,10 +163,46 @@
       <button onclick="document.getElementById('importFile').click()" class="button secondary-button" style="text-align:left;margin-bottom:10px">
         <i class="fas fa-file-arrow-up" style="margin-right:10px;color:var(--c-orange)"></i>Ripristina Backup
       </button>
-      <button onclick="exportCSV()" class="button secondary-button" style="text-align:left">
+      <button onclick="exportCSV()" class="button secondary-button" style="text-align:left;margin-bottom:20px">
         <i class="fas fa-table" style="margin-right:10px;color:var(--c-green)"></i>Esporta per Excel (CSV)
       </button>
       <input type="file" id="importFile" style="display:none" onchange="importJSON(event)" accept=".json">
+
+      <!-- Sicurezza -->
+      <div style="border-top:0.33px solid var(--separator);margin-bottom:16px"></div>
+      <h3 style="margin:0 0 14px;font-size:17px;font-weight:700">Sicurezza</h3>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div>
+          <div style="font-size:15px;font-weight:600">Blocco con PIN</div>
+          <div style="font-size:12px;color:var(--label2)">Richiedi PIN all'apertura</div>
+        </div>
+        <label class="ios-toggle">
+          <input type="checkbox" id="lockEnabledToggle">
+          <div class="ios-toggle-track"></div>
+          <div class="ios-toggle-thumb"></div>
+        </label>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-bottom:10px">
+        <input type="password" id="pinNew" placeholder="Nuovo PIN (4–8 cifre)" inputmode="numeric" style="flex:1">
+        <input type="password" id="pinConfirm" placeholder="Conferma PIN" inputmode="numeric" style="flex:1">
+      </div>
+      <button id="btnSavePin" class="button primary-button" style="margin:0 0 8px">Salva PIN</button>
+      <div id="securityStatus" style="font-size:12px;text-align:center;min-height:16px;color:var(--label2);margin-bottom:10px"></div>
+
+      <div id="biometricRows" style="display:none;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:32px;height:32px;border-radius:8px;background:var(--c-green);display:flex;align-items:center;justify-content:center">
+            <i class="fas fa-fingerprint" style="color:#fff;font-size:16px"></i>
+          </div>
+          <div style="font-size:15px;font-weight:600">Face ID / Touch ID</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button id="btnSetupBiometric" class="chip-btn" style="display:none">Attiva</button>
+          <button id="btnDisableBiometric" class="chip-btn" style="display:none;color:var(--c-red)">Disattiva</button>
+        </div>
+      </div>
     </div>
   </div>
 
