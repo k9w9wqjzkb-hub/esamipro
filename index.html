@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="iMieiEsami">
+  <title>iMieiEsami Pro</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="apple-touch-icon" href="assets/icon.png">
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <header class="navbar" style="justify-content:space-between;padding-left:max(20px,var(--safe-left));padding-right:max(20px,var(--safe-right))">
+    <div>
+      <div id="navGreeting" style="font-size:13px;color:var(--label2);font-weight:500"></div>
+      <h1 style="font-size:20px;font-weight:700;letter-spacing:-0.3px;margin:0;color:var(--label)">I Miei Esami</h1>
+    </div>
+    <button id="dashAddBtn" style="width:36px;height:36px;border-radius:12px;border:none;
+      background:var(--c-blue);color:white;font-size:16px;display:flex;align-items:center;
+      justify-content:center;cursor:pointer;box-shadow:0 3px 10px rgba(0,122,255,0.3)">
+      <i class="fas fa-plus"></i>
+    </button>
+  </header>
+
+  <!-- MAIN -->
+  <main class="main-content">
+
+    <!-- ===== DASHBOARD ===== -->
+    <div id="view-dashboard" class="app-view">
+      <div id="overallStatus" style="margin-bottom:14px"></div>
+      <div id="keyMetricsGrid" class="key-metrics-grid"></div>
+
+      <div id="outOfRangeSection" style="display:none; margin-top:20px">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px">
+          <h2 class="section-title" style="margin:0">Anomalie</h2>
+          <button id="btnShareAnomalies" class="chip-btn">
+            <i class="fab fa-whatsapp"></i> Condividi
+          </button>
+        </div>
+        <div id="outOfRangeList"></div>
+      </div>
+    </div>
+
+    <!-- ===== TREND ===== -->
+    <div id="view-trends" class="app-view" style="display:none">
+      <h2 class="section-title">Analisi Trend</h2>
+      <div class="card-white" style="margin-bottom:14px">
+        <div style="display:flex; gap:10px; align-items:center">
+          <select id="trendParamSelector" class="ios-select" style="flex:1"></select>
+          <select id="trendMode" class="ios-select" style="width:160px">
+            <option value="values">Valori</option>
+            <option value="delta">Δ vs prec.</option>
+            <option value="ma3">Media mobile 3</option>
+          </select>
+        </div>
+      </div>
+      <div style="background:var(--surface); padding:16px; border-radius:var(--radius-lg); border:0.33px solid var(--separator); height:300px;">
+        <canvas id="mainTrendChart"></canvas>
+      </div>
+      <div style="display:flex;gap:16px;margin-top:10px;padding:0 4px">
+        <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--label2)">
+          <div style="width:18px;height:2px;background:#007AFF;border-radius:2px"></div>Valore
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--label2)">
+          <div style="width:18px;height:2px;background:rgba(52,199,89,0.7);border-radius:2px;border-top:1.5px dashed rgba(52,199,89,0.7)"></div>Range normale
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--label2)">
+          <div style="width:14px;height:14px;background:rgba(52,199,89,0.12);border-radius:3px;border:0.5px solid rgba(52,199,89,0.4)"></div>Zona OK
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== STORICO ===== -->
+    <div id="view-history" class="app-view" style="display:none">
+      <div class="section-head">
+        <h2 class="section-title" style="margin:0">Storico Referti</h2>
+        <button id="historyAddBtn" class="history-add-btn" aria-label="Aggiungi referto">
+          <i class="fas fa-plus"></i>
+        </button>
+      </div>
+      <div id="historyList"></div>
+    </div>
+
+    <!-- ===== SETTINGS ===== -->
+    <div id="view-settings" class="app-view" style="display:none">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px">
+        <h2 class="section-title" style="margin:0">Configurazione</h2>
+        <button id="btnTools" style="background:none;border:none;color:var(--c-blue);font-size:22px;cursor:pointer;padding:10px;border-radius:var(--radius-md)" aria-label="Backup">
+          <i class="fas fa-ellipsis"></i>
+        </button>
+      </div>
+
+      <!-- Aggiungi parametro -->
+      <p style="font-size:13px;color:var(--label2);margin:0 0 12px 2px">Dizionario parametri</p>
+      <div class="card-white" style="margin-bottom:20px">
+        <form id="paramConfigForm">
+          <div class="input-group">
+            <label>Nome esame</label>
+            <input type="text" id="confName" placeholder="es. Ferro" required>
+          </div>
+          <div style="display:flex;gap:10px">
+            <div class="input-group" style="flex:2">
+              <label>Unità</label>
+              <input type="text" id="confUnit" placeholder="es. mg/dL" required>
+            </div>
+            <div class="input-group" style="flex:1">
+              <label>Decimali</label>
+              <input type="number" id="confDecimals" value="1" min="0" max="4">
+            </div>
+          </div>
+          <div style="display:flex;gap:10px">
+            <div class="input-group" style="flex:1">
+              <label>Categoria</label>
+              <input type="text" id="confCategory" placeholder="Altro" value="Altro">
+            </div>
+            <div class="input-group" style="flex:1">
+              <label>Direzione</label>
+              <select id="confDirection" class="ios-select">
+                <option value="range">Range</option>
+                <option value="lower_better">↓ Basso</option>
+                <option value="higher_better">↑ Alto</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px">
+            <div class="input-group" style="flex:1">
+              <label>Min</label>
+              <input type="number" id="confMin" placeholder="—" step="0.1">
+            </div>
+            <div class="input-group" style="flex:1">
+              <label>Max</label>
+              <input type="number" id="confMax" placeholder="—" step="0.1">
+            </div>
+          </div>
+          <button type="submit" class="button primary-button" style="margin-top:4px">
+            <i class="fas fa-plus" style="margin-right:8px"></i>Aggiungi al Dizionario
+          </button>
+        </form>
+      </div>
+
+      <div id="dictionaryList"></div>
+
+      <!-- Sicurezza -->
+      <h2 class="section-title" style="margin-top:28px">Sicurezza</h2>
+      <div class="grouped-section">
+        <div class="grouped-row">
+          <div class="grouped-row-icon" style="background:var(--c-blue)"><i class="fas fa-lock"></i></div>
+          <div style="flex:1">
+            <div style="font-size:15px;font-weight:600">Blocco con PIN</div>
+            <div style="font-size:12px;color:var(--label2)">Richiedi PIN all'apertura</div>
+          </div>
+          <label class="ios-toggle">
+            <input type="checkbox" id="lockEnabledToggle">
+            <div class="ios-toggle-track"></div>
+            <div class="ios-toggle-thumb"></div>
+          </label>
+        </div>
+        <div class="grouped-row" style="flex-direction:column;align-items:stretch;gap:10px">
+          <div style="display:flex;gap:10px">
+            <input type="password" id="pinNew" placeholder="Nuovo PIN (4–8 cifre)" inputmode="numeric" style="flex:1">
+            <input type="password" id="pinConfirm" placeholder="Conferma PIN" inputmode="numeric" style="flex:1">
+          </div>
+          <button id="btnSavePin" class="button primary-button" style="margin:0">Salva PIN</button>
+          <div id="securityStatus" style="font-size:12px;text-align:center;min-height:16px;color:var(--label2)"></div>
+        </div>
+        <div class="grouped-row" id="biometricRows" style="display:none">
+          <div class="grouped-row-icon" style="background:var(--c-green)"><i class="fas fa-fingerprint"></i></div>
+          <div style="flex:1">
+            <div style="font-size:15px;font-weight:600">Face ID / Touch ID</div>
+          </div>
+          <button id="btnSetupBiometric" class="chip-btn" style="display:none">Attiva</button>
+          <button id="btnDisableBiometric" class="chip-btn" style="display:none;color:var(--c-red)">Disattiva</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ===== MODAL: BACKUP ===== -->
+  <div id="toolsModal" class="modal">
+    <div class="modal-content">
+      <span class="close-tools">&times;</span>
+      <h3 style="margin:0 0 6px;font-size:20px;font-weight:700">Gestione Dati</h3>
+      <p style="font-size:13px;color:var(--label2);margin:0 0 20px">Esporta per sicurezza o importa da backup.</p>
+      <button onclick="exportJSON()" class="button secondary-button" style="text-align:left;margin-bottom:10px">
+        <i class="fas fa-file-arrow-down" style="margin-right:10px;color:var(--c-blue)"></i>Backup Completo (JSON)
+      </button>
+      <button onclick="document.getElementById('importFile').click()" class="button secondary-button" style="text-align:left;margin-bottom:10px">
+        <i class="fas fa-file-arrow-up" style="margin-right:10px;color:var(--c-orange)"></i>Ripristina Backup
+      </button>
+      <button onclick="exportCSV()" class="button secondary-button" style="text-align:left">
+        <i class="fas fa-table" style="margin-right:10px;color:var(--c-green)"></i>Esporta per Excel (CSV)
+      </button>
+      <input type="file" id="importFile" style="display:none" onchange="importJSON(event)" accept=".json">
+    </div>
+  </div>
+
+  <!-- ===== MODAL: MODIFICA PARAM ===== -->
+  <div id="editDictModal" class="modal">
+    <div class="modal-content">
+      <span class="close-edit-dict">&times;</span>
+      <h3 style="margin:0 0 18px;font-size:20px;font-weight:700">Modifica Parametro</h3>
+      <form id="editDictForm">
+        <input type="hidden" id="editDictIndex">
+        <div class="input-group">
+          <label>Nome esame</label>
+          <input type="text" id="editDictName" required>
+        </div>
+        <div style="display:flex;gap:10px">
+          <div class="input-group" style="flex:2">
+            <label>Unità di misura</label>
+            <input type="text" id="editDictUnit" required>
+          </div>
+          <div class="input-group" style="flex:1">
+            <label>Decimali</label>
+            <input type="number" id="editDictDecimals" min="0" max="4" step="1">
+          </div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <div class="input-group" style="flex:1">
+            <label>Categoria</label>
+            <input type="text" id="editDictCategory" placeholder="Altro">
+          </div>
+          <div class="input-group" style="flex:1">
+            <label>Direzione</label>
+            <select id="editDictDirection" class="ios-select">
+              <option value="range">Range</option>
+              <option value="lower_better">↓ Basso</option>
+              <option value="higher_better">↑ Alto</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <div class="input-group" style="flex:1">
+            <label>Min</label>
+            <input type="number" id="editDictMin" step="0.1">
+          </div>
+          <div class="input-group" style="flex:1">
+            <label>Max</label>
+            <input type="number" id="editDictMax" step="0.1">
+          </div>
+        </div>
+        <button type="submit" class="button primary-button" style="margin-top:6px">Salva Modifiche</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== MODAL: NUOVO REFERTO ===== -->
+  <div id="examModal" class="modal">
+    <div class="modal-content">
+      <span class="close-button">&times;</span>
+      <h3 style="margin:0 0 18px;font-size:20px;font-weight:700">Nuovo Referto</h3>
+      <form id="reportForm">
+        <div style="display:flex;gap:10px">
+          <div class="input-group" style="flex:1">
+            <label>Data prelievo</label>
+            <input type="date" id="reportDate" required>
+          </div>
+        </div>
+        <div class="input-group">
+          <label>Luogo / Laboratorio</label>
+          <input type="text" id="reportLocation" placeholder="es. Ospedale Maggiore" required>
+        </div>
+        <div class="input-group">
+          <label>Note</label>
+          <textarea id="reportNotes" rows="2" placeholder="Digiuno, terapia, sintomi… (facoltativo)" style="resize:none"></textarea>
+        </div>
+
+        <div id="tempExamsList" style="margin:14px 0 10px"></div>
+
+        <div style="background:var(--surface3);padding:14px;border-radius:var(--radius-md);border:0.33px solid var(--separator)">
+          <p style="font-size:11px;font-weight:700;color:var(--label2);text-transform:uppercase;letter-spacing:0.4px;margin:0 0 10px">Aggiungi parametro</p>
+          <select id="examParamSelect" class="ios-select"></select>
+          <input type="number" id="examValue" step="0.1" placeholder="Valore" style="margin-top:8px">
+          <button type="button" id="btnAddRow" class="button secondary-button" style="margin-top:10px">
+            <i class="fas fa-plus" style="margin-right:8px"></i>Inserisci riga
+          </button>
+        </div>
+
+        <button type="submit" class="button primary-button" style="margin-top:14px">
+          <i class="fas fa-check" style="margin-right:8px"></i>Salva Referto
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== LOCK SCREEN ===== -->
+  <div id="lockScreen" class="lock-screen">
+    <div class="lock-card">
+      <div style="text-align:center;margin-bottom:4px">
+        <i class="fas fa-lock" style="font-size:36px;color:var(--c-blue)"></i>
+      </div>
+      <div class="lock-title" style="margin-top:10px">iMieiEsami</div>
+      <div class="lock-subtitle">Inserisci il PIN per continuare</div>
+      <input id="lockPinInput" class="lock-input" type="password" inputmode="numeric" pattern="[0-9]*" placeholder="• • • •">
+      <div id="lockError" class="lock-error"></div>
+      <button id="btnUnlock" class="button primary-button" type="button" style="margin-top:12px">Sblocca</button>
+      <button id="btnUnlockBiometric" class="button secondary-button" type="button" style="margin-top:8px;display:none">
+        <i class="fas fa-fingerprint" style="margin-right:8px"></i>Face ID / Touch ID
+      </button>
+    </div>
+  </div>
+
+  <!-- TAB BAR -->
+  <nav class="tab-bar">
+    <a href="#" class="tab-item active" data-view="dashboard">
+      <i class="fas fa-square-poll-vertical"></i><span>Home</span>
+    </a>
+    <a href="#" class="tab-item" data-view="trends">
+      <i class="fas fa-chart-line"></i><span>Trend</span>
+    </a>
+    <a href="#" class="tab-item" data-view="history">
+      <i class="fas fa-clock-rotate-left"></i><span>Storico</span>
+    </a>
+    <a href="#" class="tab-item" data-view="settings">
+      <i class="fas fa-gear"></i><span>Config</span>
+    </a>
+  </nav>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    // Registra il plugin Filler subito dopo Chart.js, prima di app.js
+    // Necessario per fill tra dataset (banda range verde nel grafico trend)
+    if (typeof Chart !== 'undefined') {
+      if (Chart.Filler) Chart.register(Chart.Filler);
+      // In alcuni bundle CDN il Filler è già auto-registrato ma non fa male rifarlo
+    }
+  </script>
+  <script src="app.js"></script>
+</body>
+</html>
